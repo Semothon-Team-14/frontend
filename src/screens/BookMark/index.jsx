@@ -39,8 +39,8 @@ export function BookMark() {
       <ScrollView contentContainerStyle={styles.sheetWrap}>
         <View style={styles.sheet}>
           <View style={styles.titleRow}>
-            <Text style={styles.placeTitle}>{primaryPlace?.name || "음식점 이름 A"}</Text>
-            <Text style={styles.placeType}>{firstRestaurant ? "restaurant" : "cafe"}</Text>
+            <Text style={styles.placeTitle}>{primaryPlace?.name || "-"}</Text>
+            <Text style={styles.placeType}>{primaryPlace ? (firstRestaurant ? "restaurant" : "cafe") : "-"}</Text>
           </View>
         </View>
       </ScrollView>
