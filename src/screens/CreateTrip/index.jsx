@@ -4,6 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { createTrip } from "../../services/tripService";
 import { fetchAllCities } from "../../services/placeService";
 
+function normalizeLiteral(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 export function CreateTrip({ navigation }) {
   const [title, setTitle] = useState("");
   const [cityQuery, setCityQuery] = useState("");
@@ -18,7 +22,10 @@ export function CreateTrip({ navigation }) {
     async function loadCities() {
       try {
         const loadedCities = await fetchAllCities();
-        setCities(loadedCities);
+        const dedupedCities = Array.from(
+          new Map((loadedCities ?? []).map((city) => [city?.id, city])).values(),
+        ).sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+        setCities(dedupedCities);
       } catch {
         setCities([]);
       }
@@ -27,20 +34,32 @@ export function CreateTrip({ navigation }) {
     loadCities();
   }, []);
 
+  function handleCityQueryChange(nextQuery) {
+    setCityQuery(nextQuery);
+    const normalizedQuery = normalizeLiteral(nextQuery);
+    const exactMatchedCity = cities.find((city) => normalizeLiteral(city?.name) === normalizedQuery) ?? null;
+    setSelectedCity(exactMatchedCity);
+  }
+
   const filteredCities = useMemo(() => {
-    const query = cityQuery.trim().toLowerCase();
+    const query = normalizeLiteral(cityQuery);
     if (!query) {
       return cities.slice(0, 20);
     }
 
     return cities
-      .filter((city) => city?.name?.toLowerCase().includes(query))
+      .filter((city) => normalizeLiteral(city?.name).includes(query))
       .slice(0, 20);
   }, [cities, cityQuery]);
 
   async function handleCreateTrip() {
-    if (!title.trim() || !selectedCity?.id || !startDate.trim() || !endDate.trim()) {
+    if (!title.trim() || !startDate.trim() || !endDate.trim()) {
       setError("제목, 도시, 시작일, 종료일을 모두 입력해주세요.");
+      return;
+    }
+
+    if (!selectedCity?.id) {
+      setError("도시는 목록에서 검색해 정확히 선택해주세요.");
       return;
     }
 
@@ -84,7 +103,7 @@ export function CreateTrip({ navigation }) {
         <TextInput
           style={styles.input}
           value={cityQuery}
-          onChangeText={setCityQuery}
+          onChangeText={handleCityQueryChange}
           placeholder="도시명을 입력하세요"
         />
 
@@ -95,13 +114,18 @@ export function CreateTrip({ navigation }) {
               <Pressable
                 key={city.id}
                 style={[styles.cityItem, active && styles.cityItemActive]}
-                onPress={() => setSelectedCity(city)}
+                onPress={() => {
+                  setSelectedCity(city);
+                  setCityQuery(city.name || "");
+                  setError(null);
+                }}
               >
                 <Text style={[styles.cityItemText, active && styles.cityItemTextActive]}>{city.name}</Text>
               </Pressable>
             );
           })}
         </View>
+        {selectedCity?.id ? <Text style={styles.selectedCityText}>선택된 도시 ID: {selectedCity.id}</Text> : null}
 
         <Text style={styles.label}>시작일 (YYYY-MM-DD)</Text>
         <TextInput
@@ -197,6 +221,11 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#C62828",
     fontSize: 13,
+  },
+  selectedCityText: {
+    fontSize: 12,
+    color: "#1C73F0",
+    fontWeight: "600",
   },
   createButton: {
     marginTop: 8,
