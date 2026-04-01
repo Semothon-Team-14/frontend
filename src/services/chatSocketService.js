@@ -16,7 +16,7 @@ export function createChatSocketClient({ onConnect, onError } = {}) {
     connectHeaders: {
       accessToken: token || '',
     },
-    reconnectDelay: 3000,
+    reconnectDelay: 200,
     heartbeatIncoming: 10000,
     heartbeatOutgoing: 10000,
     webSocketFactory: () => new WebSocket(getChatWebSocketUrl()),
@@ -37,6 +37,12 @@ export function createChatSocketClient({ onConnect, onError } = {}) {
   client.onWebSocketError = () => {
     if (typeof onError === 'function') {
       onError('WebSocket connection error');
+    }
+  };
+
+  client.onWebSocketClose = () => {
+    if (typeof onError === 'function') {
+      onError('WebSocket disconnected, reconnecting...');
     }
   };
 
