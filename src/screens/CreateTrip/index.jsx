@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { CalendarDateField } from "../../components/CalendarDateField";
 import { SearchDropdown } from "../../components/SearchDropdown";
 import { createTrip } from "../../services/tripService";
 import { fetchAllCities } from "../../services/placeService";
@@ -50,6 +51,11 @@ export function CreateTrip({ navigation }) {
 
     if (!selectedCity?.id) {
       setError("도시는 목록에서 검색해 정확히 선택해주세요.");
+      return;
+    }
+
+    if (startDate > endDate) {
+      setError("종료일은 시작일보다 같거나 이후여야 합니다.");
       return;
     }
 
@@ -107,22 +113,25 @@ export function CreateTrip({ navigation }) {
         />
         {selectedCity?.id ? <Text style={styles.selectedCityText}>선택된 도시 ID: {selectedCity.id}</Text> : null}
 
-        <Text style={styles.label}>시작일 (YYYY-MM-DD)</Text>
-        <TextInput
-          style={styles.input}
+        <CalendarDateField
+          label="시작일"
           value={startDate}
-          onChangeText={setStartDate}
-          placeholder="2026-04-01"
-          autoCapitalize="none"
+          onChange={(dateValue) => {
+            setStartDate(dateValue);
+            if (endDate && endDate < dateValue) {
+              setEndDate("");
+            }
+          }}
+          maxDate={endDate || undefined}
+          placeholder="시작일 선택"
         />
 
-        <Text style={styles.label}>종료일 (YYYY-MM-DD)</Text>
-        <TextInput
-          style={styles.input}
+        <CalendarDateField
+          label="종료일"
           value={endDate}
-          onChangeText={setEndDate}
-          placeholder="2026-04-05"
-          autoCapitalize="none"
+          onChange={setEndDate}
+          minDate={startDate || undefined}
+          placeholder="종료일 선택"
         />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -164,14 +173,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#666",
     fontWeight: "600",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#D5D5D5",
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "#FFF",
   },
   errorText: {
     color: "#C62828",
