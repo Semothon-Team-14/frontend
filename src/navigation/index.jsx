@@ -14,6 +14,7 @@ import { Nearby } from "../screens/Nearby";
 import { QuickMatch } from "../screens/QuickMatch";
 import { NotFound } from "../screens/NotFound";
 import { CreateTrip } from "../screens/CreateTrip";
+import { ProfileEdit } from "../screens/ProfileEdit";
 import { LoginScreen } from "../screens/Auth/Login";
 import { SignUpScreen } from "../screens/Auth/SignUp";
 import { useAuth } from "../auth";
@@ -82,6 +83,7 @@ function AppStack() {
       <Stack.Screen name="Nearby" component={Nearby} />
       <Stack.Screen name="QuickMatch" component={QuickMatch} />
       <Stack.Screen name="CreateTrip" component={CreateTrip} />
+      <Stack.Screen name="ProfileEdit" component={ProfileEdit} />
       <Stack.Screen
         name="NotFound"
         component={NotFound}
