@@ -1,5 +1,16 @@
 import { get } from '../api/httpClient';
 
+function toUiCity(city) {
+  if (!city) {
+    return null;
+  }
+
+  return {
+    ...city,
+    name: city.cityNameKorean || city.cityNameEnglish || '',
+  };
+}
+
 export function fetchNationalities() {
   return get('/nationalities');
 }
@@ -25,12 +36,8 @@ export function fetchCafeImages(cafeId) {
 }
 
 export async function fetchAllCities() {
-  const nationalityResponse = await fetchNationalities();
-  const nationalities = nationalityResponse?.nationalities ?? [];
-
-  const cityResponses = await Promise.all(
-    nationalities.map((nationality) => fetchCitiesByNationality(nationality.id)),
-  );
-
-  return cityResponses.flatMap((response) => response?.cities ?? []);
+  const response = await get('/cities');
+  const nationalities = response?.nationalities ?? [];
+  const cities = nationalities.flatMap((entry) => entry?.cities ?? []);
+  return cities.map(toUiCity).filter(Boolean);
 }
