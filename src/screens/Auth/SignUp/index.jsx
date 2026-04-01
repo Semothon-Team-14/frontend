@@ -1,6 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { SearchDropdown } from "../../../components/SearchDropdown";
 import { useAuth } from "../../../auth";
+import { fetchNationalities } from "../../../services";
+
+function normalizeLiteral(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getNationalityDisplayName(nationality) {
+  return nationality?.countryNameKorean || nationality?.countryNameEnglish || "";
+}
+
+function getNationalitySearchText(nationality) {
+  return [nationality?.countryNameKorean, nationality?.countryNameEnglish, nationality?.countryCode]
+    .filter(Boolean)
+    .join(" ");
+}
 
 export function SignUpScreen({ navigation }) {
   const { signup, login } = useAuth();
@@ -13,6 +29,9 @@ export function SignUpScreen({ navigation }) {
     sex: "",
     introduction: "",
   });
+  const [nationalityQuery, setNationalityQuery] = useState("");
+  const [selectedNationality, setSelectedNationality] = useState(null);
+  const [nationalities, setNationalities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -23,12 +42,43 @@ export function SignUpScreen({ navigation }) {
     }));
   }
 
+  useEffect(() => {
+    async function loadNationalities() {
+      try {
+        const response = await fetchNationalities();
+        const loaded = response?.nationalities ?? [];
+        setNationalities(loaded);
+      } catch {
+        setNationalities([]);
+      }
+    }
+
+    loadNationalities();
+  }, []);
+
+  function handleNationalityQueryChange(nextQuery) {
+    setNationalityQuery(nextQuery);
+    const normalizedQuery = normalizeLiteral(nextQuery);
+    const exactMatched = nationalities.find((nationality) => {
+      const ko = normalizeLiteral(nationality?.countryNameKorean);
+      const en = normalizeLiteral(nationality?.countryNameEnglish);
+      const code = normalizeLiteral(nationality?.countryCode);
+      return normalizedQuery === ko || normalizedQuery === en || normalizedQuery === code;
+    }) || null;
+    setSelectedNationality(exactMatched);
+  }
+
   async function handleSignUp() {
-    const requiredKeys = ["username", "password", "name", "email", "phone"];
+    const requiredKeys = ["username", "password", "name", "email", "phone", "sex"];
     const missing = requiredKeys.some((key) => !form[key]?.trim());
 
     if (missing) {
-      setError("username, password, name, email, phone are required.");
+      setError("username, password, name, email, phone, sex are required.");
+      return;
+    }
+
+    if (!selectedNationality?.id) {
+      setError("국적을 목록에서 선택해주세요.");
       return;
     }
 
@@ -42,8 +92,9 @@ export function SignUpScreen({ navigation }) {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
-        sex: form.sex?.trim() ? form.sex.trim() : null,
+        sex: form.sex.trim(),
         introduction: form.introduction?.trim() ? form.introduction.trim() : null,
+        nationalityId: selectedNationality.id,
         keywordIds: [],
       });
 
@@ -66,7 +117,41 @@ export function SignUpScreen({ navigation }) {
         <Field label="Name" value={form.name} onChangeText={(v) => updateField("name", v)} />
         <Field label="Email" value={form.email} onChangeText={(v) => updateField("email", v)} />
         <Field label="Phone" value={form.phone} onChangeText={(v) => updateField("phone", v)} />
-        <Field label="Sex (optional)" value={form.sex} onChangeText={(v) => updateField("sex", v)} placeholder="MALE / FEMALE" />
+
+        <Text style={styles.label}>Nationality</Text>
+        <SearchDropdown
+          value={nationalityQuery}
+          onChangeText={handleNationalityQueryChange}
+          placeholder="국가명을 입력하세요"
+          items={nationalities}
+          selectedItem={selectedNationality}
+          getItemKey={(nationality) => nationality.id}
+          getItemLabel={getNationalityDisplayName}
+          getItemSearchText={getNationalitySearchText}
+          onSelectItem={(nationality) => {
+            setSelectedNationality(nationality);
+            setNationalityQuery(getNationalityDisplayName(nationality));
+            setError(null);
+          }}
+          emptyText="일치하는 국가가 없습니다."
+        />
+
+        <Text style={styles.label}>Sex</Text>
+        <View style={styles.sexRow}>
+          <Pressable
+            style={[styles.sexButton, form.sex === "MALE" && styles.sexButtonActive]}
+            onPress={() => updateField("sex", "MALE")}
+          >
+            <Text style={[styles.sexButtonText, form.sex === "MALE" && styles.sexButtonTextActive]}>MALE</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.sexButton, form.sex === "FEMALE" && styles.sexButtonActive]}
+            onPress={() => updateField("sex", "FEMALE")}
+          >
+            <Text style={[styles.sexButtonText, form.sex === "FEMALE" && styles.sexButtonTextActive]}>FEMALE</Text>
+          </Pressable>
+        </View>
+
         <Field
           label="Introduction (optional)"
           value={form.introduction}
@@ -143,6 +228,31 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 70,
     textAlignVertical: "top",
+  },
+  sexRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  sexButton: {
+    flex: 1,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#D5D5D5",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF",
+  },
+  sexButtonActive: {
+    borderColor: "#0169FE",
+    backgroundColor: "#EAF2FF",
+  },
+  sexButtonText: {
+    color: "#666",
+    fontWeight: "700",
+  },
+  sexButtonTextActive: {
+    color: "#0169FE",
   },
   error: {
     color: "#C62828",
