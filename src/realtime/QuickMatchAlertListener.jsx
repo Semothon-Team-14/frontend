@@ -36,6 +36,7 @@ export function QuickMatchAlertListener() {
   const userId = useMemo(() => toNumberOrNull(decodeUserIdFromToken(token)), [token]);
   const [socketReady, setSocketReady] = useState(false);
   const [currentCityId, setCurrentCityId] = useState(null);
+  const [socketError, setSocketError] = useState(null);
   const [bannerMessage, setBannerMessage] = useState(null);
   const [bannerVisible, setBannerVisible] = useState(false);
   const clientRef = useRef(null);
@@ -75,6 +76,17 @@ export function QuickMatchAlertListener() {
     }, 4200);
   }, []);
 
+  useEffect(() => {
+    if (!socketError) {
+      return;
+    }
+
+    const message = socketError.toLowerCase().includes("access token")
+      ? "소켓 인증 실패: accessToken을 확인해주세요."
+      : `소켓 오류: ${socketError}`;
+    showInAppBanner(message);
+  }, [socketError, showInAppBanner]);
+
   const loadCurrentCityId = useCallback(async () => {
     if (!userId) {
       setCurrentCityId(null);
@@ -97,8 +109,16 @@ export function QuickMatchAlertListener() {
     }
 
     const client = createQuickMatchSocketClient({
-      onConnect: () => setSocketReady(true),
-      onError: () => setSocketReady(false),
+      onConnect: () => {
+        setSocketReady(true);
+        setSocketError(null);
+        console.log("[QM SOCKET] CONNECTED");
+      },
+      onError: (message) => {
+        setSocketReady(false);
+        setSocketError(message || "unknown error");
+        console.warn("[QM SOCKET] ERROR", message || "unknown");
+      },
     });
 
     clientRef.current = client;
@@ -112,6 +132,7 @@ export function QuickMatchAlertListener() {
       client.deactivate();
       clientRef.current = null;
       setSocketReady(false);
+      setSocketError(null);
       if (bannerTimerRef.current) {
         clearTimeout(bannerTimerRef.current);
       }
@@ -159,8 +180,10 @@ export function QuickMatchAlertListener() {
       return;
     }
 
+    console.log("[QM SOCKET] SUBSCRIBE CITY", currentCityId);
     citySubscriptionRef.current?.unsubscribe();
     citySubscriptionRef.current = subscribeCityQuickMatches(clientRef.current, currentCityId, (event) => {
+      console.log("[QM SOCKET] CITY EVENT", event?.eventType || "-", event?.quickMatch?.id || "-");
       const targetUserIds = event?.targetUserIds ?? [];
       const isTargetUser = targetUserIds.length === 0 || targetUserIds.some((id) => toNumberOrNull(id) === userId);
       if (!isTargetUser || !shouldNotify(event)) {

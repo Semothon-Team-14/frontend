@@ -1,3 +1,14 @@
+function decodeBase64Url(value) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+
+  if (typeof globalThis.atob !== "function") {
+    throw new Error("atob is unavailable in this runtime");
+  }
+
+  return globalThis.atob(padded);
+}
+
 export function decodeUserIdFromToken(token) {
   if (!token) {
     return 1;
@@ -8,10 +19,8 @@ export function decodeUserIdFromToken(token) {
   }
 
   try {
-    const normalized = token.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-    const decoded = globalThis.atob ? globalThis.atob(padded) : null;
-    if (!decoded || !decoded.startsWith("userId:")) {
+    const decoded = decodeBase64Url(token);
+    if (!decoded.startsWith("userId:")) {
       return 1;
     }
 
