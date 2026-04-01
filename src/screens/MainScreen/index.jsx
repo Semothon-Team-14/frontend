@@ -24,10 +24,10 @@ import { fetchAllCities } from "../../services/placeService";
 import { pickCurrentTrip } from "../../utils/trip";
 
 const CHIPS = [
-  { id: "restaurant", label: "#식당" },
-  { id: "cafe", label: "#카페" },
-  { id: "shopping", label: "#쇼핑" },
-  { id: "fun", label: "#놀거리" },
+  { id: "restaurant", label: "#식당", supported: true },
+  { id: "cafe", label: "#카페", supported: true },
+  { id: "shopping", label: "#쇼핑", supported: false },
+  { id: "fun", label: "#놀거리", supported: false },
 ];
 
 function ChipRow({ activeId, onSelect }) {
@@ -36,7 +36,12 @@ function ChipRow({ activeId, onSelect }) {
       {CHIPS.map((chip) => {
         const active = chip.id === activeId;
         return (
-          <Pressable key={chip.id} onPress={() => onSelect(chip.id)} style={[styles.chip, active && styles.chipActive]}>
+          <Pressable
+            key={chip.id}
+            disabled={!chip.supported}
+            onPress={() => onSelect(chip.id)}
+            style={[styles.chip, active && styles.chipActive, !chip.supported && styles.chipDisabled]}
+          >
             <Text style={[styles.chipText, active && styles.chipTextActive]}>{chip.label}</Text>
           </Pressable>
         );
@@ -57,7 +62,17 @@ export function MainScreen() {
   const [places, setPlaces] = useState([]);
 
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
-  const activePlaceType = useMemo(() => (activeChip === "cafe" ? "cafe" : "restaurant"), [activeChip]);
+  const activePlaceType = useMemo(() => {
+    if (activeChip === "restaurant") {
+      return "restaurant";
+    }
+
+    if (activeChip === "cafe") {
+      return "cafe";
+    }
+
+    return null;
+  }, [activeChip]);
 
   async function enrichWithImages(items, type) {
     return Promise.all(
@@ -89,6 +104,11 @@ export function MainScreen() {
       setSelectedCity(city);
 
       if (!city?.id) {
+        setPlaces([]);
+        return;
+      }
+
+      if (!activePlaceType) {
         setPlaces([]);
         return;
       }
@@ -206,6 +226,8 @@ export function MainScreen() {
             </ImageBackground>
           </Pressable>
         ))}
+        {activePlaceType == null ? <Text style={styles.emptyText}>해당 태그는 아직 준비 중입니다.</Text> : null}
+        {activePlaceType != null && visiblePlaces.length === 0 ? <Text style={styles.emptyText}>표시할 장소가 없습니다.</Text> : null}
 
         <Pressable style={styles.floatingPlusButton} onPress={loadHome}>
           <Ionicons name="add" size={30} color="#fff" />
@@ -366,6 +388,9 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: "#fff",
   },
+  chipDisabled: {
+    opacity: 0.45,
+  },
   plusChip: {
     width: 28,
     height: 28,
@@ -474,5 +499,11 @@ const styles = StyleSheet.create({
     color: "#8A8A8A",
     fontSize: 14,
     fontWeight: "600",
+  },
+  emptyText: {
+    color: "#8A8A8A",
+    fontSize: 14,
+    textAlign: "center",
+    paddingVertical: 12,
   },
 });
