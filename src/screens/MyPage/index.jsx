@@ -4,6 +4,7 @@ import Info from "../../icons/info.svg";
 import TravelIcon from "../../icons/travelIcon.svg";
 import DirectionBlack from "../../icons/direction_black.svg";
 import { setAccessToken } from "../../api/authTokenStore";
+import { useAuth } from "../../auth";
 import { fetchTrips, fetchUser } from "../../services";
 
 function formatDateRange(startDate, endDate) {
@@ -15,6 +16,7 @@ function formatDateRange(startDate, endDate) {
 }
 
 export function MyPage() {
+    const { logout } = useAuth();
     const [devToken, setDevToken] = useState("");
     const [userIdText, setUserIdText] = useState("1");
     const [user, setUser] = useState(null);
@@ -93,6 +95,9 @@ export function MyPage() {
                             <Text style={styles.controlBtnText}>새로고침</Text>
                         </Pressable>
                     </View>
+                    <Pressable style={styles.logoutBtn} onPress={logout}>
+                        <Text style={styles.logoutBtnText}>로그아웃</Text>
+                    </Pressable>
                 </View>
 
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -195,6 +200,17 @@ const styles = StyleSheet.create({
     },
     controlBtnText: {
         color: "#0169FE",
+        fontWeight: "700",
+    },
+    logoutBtn: {
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.7)",
+        borderRadius: 9,
+        paddingVertical: 8,
+        alignItems: "center",
+    },
+    logoutBtnText: {
+        color: "#FFF",
         fontWeight: "700",
     },
     errorText: {
