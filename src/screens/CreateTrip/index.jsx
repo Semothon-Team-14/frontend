@@ -10,6 +10,16 @@ function normalizeLiteral(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function getCityDisplayName(city) {
+  return city?.cityNameKorean || city?.cityNameEnglish || city?.name || "";
+}
+
+function getCitySearchText(city) {
+  return [city?.cityNameKorean, city?.cityNameEnglish, city?.name]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export function CreateTrip({ navigation }) {
   const [title, setTitle] = useState("");
   const [cityQuery, setCityQuery] = useState("");
@@ -39,7 +49,12 @@ export function CreateTrip({ navigation }) {
   function handleCityQueryChange(nextQuery) {
     setCityQuery(nextQuery);
     const normalizedQuery = normalizeLiteral(nextQuery);
-    const exactMatchedCity = cities.find((city) => normalizeLiteral(city?.name) === normalizedQuery) ?? null;
+    const exactMatchedCity = cities.find((city) => {
+      const ko = normalizeLiteral(city?.cityNameKorean);
+      const en = normalizeLiteral(city?.cityNameEnglish);
+      const fallback = normalizeLiteral(city?.name);
+      return normalizedQuery === ko || normalizedQuery === en || normalizedQuery === fallback;
+    }) ?? null;
     setSelectedCity(exactMatchedCity);
   }
 
@@ -103,10 +118,11 @@ export function CreateTrip({ navigation }) {
           items={cities}
           selectedItem={selectedCity}
           getItemKey={(city) => city.id}
-          getItemLabel={(city) => city.name || ""}
+          getItemLabel={getCityDisplayName}
+          getItemSearchText={getCitySearchText}
           onSelectItem={(city) => {
             setSelectedCity(city);
-            setCityQuery(city.name || "");
+            setCityQuery(getCityDisplayName(city));
             setError(null);
           }}
           emptyText="일치하는 도시가 없습니다."
