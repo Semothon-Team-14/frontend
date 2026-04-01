@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SearchDropdown } from "../../components/SearchDropdown";
 import { createTrip } from "../../services/tripService";
 import { fetchAllCities } from "../../services/placeService";
 
@@ -40,17 +41,6 @@ export function CreateTrip({ navigation }) {
     const exactMatchedCity = cities.find((city) => normalizeLiteral(city?.name) === normalizedQuery) ?? null;
     setSelectedCity(exactMatchedCity);
   }
-
-  const filteredCities = useMemo(() => {
-    const query = normalizeLiteral(cityQuery);
-    if (!query) {
-      return cities.slice(0, 20);
-    }
-
-    return cities
-      .filter((city) => normalizeLiteral(city?.name).includes(query))
-      .slice(0, 20);
-  }, [cities, cityQuery]);
 
   async function handleCreateTrip() {
     if (!title.trim() || !startDate.trim() || !endDate.trim()) {
@@ -100,31 +90,21 @@ export function CreateTrip({ navigation }) {
         />
 
         <Text style={styles.label}>도시 검색</Text>
-        <TextInput
-          style={styles.input}
+        <SearchDropdown
           value={cityQuery}
           onChangeText={handleCityQueryChange}
           placeholder="도시명을 입력하세요"
+          items={cities}
+          selectedItem={selectedCity}
+          getItemKey={(city) => city.id}
+          getItemLabel={(city) => city.name || ""}
+          onSelectItem={(city) => {
+            setSelectedCity(city);
+            setCityQuery(city.name || "");
+            setError(null);
+          }}
+          emptyText="일치하는 도시가 없습니다."
         />
-
-        <View style={styles.cityList}>
-          {filteredCities.map((city) => {
-            const active = selectedCity?.id === city.id;
-            return (
-              <Pressable
-                key={city.id}
-                style={[styles.cityItem, active && styles.cityItemActive]}
-                onPress={() => {
-                  setSelectedCity(city);
-                  setCityQuery(city.name || "");
-                  setError(null);
-                }}
-              >
-                <Text style={[styles.cityItemText, active && styles.cityItemTextActive]}>{city.name}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
         {selectedCity?.id ? <Text style={styles.selectedCityText}>선택된 도시 ID: {selectedCity.id}</Text> : null}
 
         <Text style={styles.label}>시작일 (YYYY-MM-DD)</Text>
@@ -192,31 +172,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     backgroundColor: "#FFF",
-  },
-  cityList: {
-    maxHeight: 180,
-    gap: 6,
-    marginBottom: 2,
-  },
-  cityItem: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E4E4E4",
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    backgroundColor: "#F7F7F8",
-  },
-  cityItemActive: {
-    backgroundColor: "#1C73F0",
-    borderColor: "#1C73F0",
-  },
-  cityItemText: {
-    color: "#444",
-    fontSize: 14,
-  },
-  cityItemTextActive: {
-    color: "#FFF",
-    fontWeight: "700",
   },
   errorText: {
     color: "#C62828",
