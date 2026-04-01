@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, TouchableWithoutFeedback, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, ImageBackground, Pressable, ScrollView, StyleSheet, Text, TouchableWithoutFeedback, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -21,6 +21,11 @@ import {
   fetchTrips,
 } from "../../services";
 import { fetchAllCities } from "../../services/placeService";
+import {
+  createQuickMatchSocketClient,
+  subscribeCityQuickMatches,
+  subscribeUserQuickMatches,
+} from "../../services/quickMatchSocketService";
 import { pickCurrentTrip } from "../../utils/trip";
 
 const CHIPS = [
@@ -60,6 +65,10 @@ export function MainScreen() {
   const [currentTrip, setCurrentTrip] = useState(null);
   const [selectedCity, setSelectedCity] = useState(null);
   const [places, setPlaces] = useState([]);
+  const quickMatchSocketClientRef = useRef(null);
+  const cityQuickMatchSubscriptionRef = useRef(null);
+  const userQuickMatchSubscriptionRef = useRef(null);
+  const [quickMatchSocketReady, setQuickMatchSocketReady] = useState(false);
 
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const activePlaceType = useMemo(() => {
@@ -135,6 +144,65 @@ export function MainScreen() {
       loadHome();
     }, [activePlaceType, userId]),
   );
+
+  useEffect(() => {
+    const client = createQuickMatchSocketClient({
+      onConnect: () => setQuickMatchSocketReady(true),
+      onError: () => setQuickMatchSocketReady(false),
+    });
+
+    quickMatchSocketClientRef.current = client;
+    client.activate();
+
+    return () => {
+      cityQuickMatchSubscriptionRef.current?.unsubscribe();
+      cityQuickMatchSubscriptionRef.current = null;
+      userQuickMatchSubscriptionRef.current?.unsubscribe();
+      userQuickMatchSubscriptionRef.current = null;
+      client.deactivate();
+      quickMatchSocketClientRef.current = null;
+      setQuickMatchSocketReady(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!quickMatchSocketReady || !quickMatchSocketClientRef.current || !selectedCity?.id || !userId) {
+      return;
+    }
+
+    cityQuickMatchSubscriptionRef.current?.unsubscribe();
+    userQuickMatchSubscriptionRef.current?.unsubscribe();
+
+    cityQuickMatchSubscriptionRef.current = subscribeCityQuickMatches(
+      quickMatchSocketClientRef.current,
+      selectedCity.id,
+      (event) => {
+        const targetUserIds = event?.targetUserIds ?? [];
+        const shouldShow = targetUserIds.length === 0 || targetUserIds.some((id) => Number(id) === Number(userId));
+        if (!shouldShow) {
+          return;
+        }
+
+        const typeText = event?.targetType ? `(${event.targetType})` : "";
+        Alert.alert("빠른 매칭 알림", `${event?.eventType || "QUICK_MATCH"} ${typeText}`);
+      },
+    );
+
+    userQuickMatchSubscriptionRef.current = subscribeUserQuickMatches(
+      quickMatchSocketClientRef.current,
+      userId,
+      (event) => {
+        Alert.alert("빠른 매칭 결과", event?.eventType || "QUICK_MATCH_UPDATED");
+      },
+    );
+
+    return () => {
+      cityQuickMatchSubscriptionRef.current?.unsubscribe();
+      cityQuickMatchSubscriptionRef.current = null;
+      userQuickMatchSubscriptionRef.current?.unsubscribe();
+      userQuickMatchSubscriptionRef.current = null;
+    };
+  }, [quickMatchSocketReady, selectedCity?.id, userId]);
 
   async function handleSave(placeId) {
     if (activePlaceType === "cafe") {
