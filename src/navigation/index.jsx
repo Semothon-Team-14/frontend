@@ -13,6 +13,7 @@ import { BookMark } from "../screens/BookMark";
 import { Nearby } from "../screens/Nearby";
 import { QuickMatch } from "../screens/QuickMatch";
 import { NotFound } from "../screens/NotFound";
+import { CreateTrip } from "../screens/CreateTrip";
 import { LoginScreen } from "../screens/Auth/Login";
 import { SignUpScreen } from "../screens/Auth/SignUp";
 import { useAuth } from "../auth";
@@ -79,6 +80,7 @@ function AppStack() {
       <Stack.Screen name="Tabs" component={TabsNavigator} />
       <Stack.Screen name="Nearby" component={Nearby} />
       <Stack.Screen name="QuickMatch" component={QuickMatch} />
+      <Stack.Screen name="CreateTrip" component={CreateTrip} />
       <Stack.Screen
         name="NotFound"
         component={NotFound}
