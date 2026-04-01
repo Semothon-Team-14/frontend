@@ -3,9 +3,29 @@ function normalizeDate(dateText) {
     return null;
   }
 
-  const normalized = String(dateText).replace(/\./g, "-");
-  const parsed = new Date(normalized);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const text = String(dateText).trim();
+
+  const fullDateMatch = text.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);
+  if (fullDateMatch) {
+    const year = Number(fullDateMatch[1]);
+    const month = Number(fullDateMatch[2]) - 1;
+    const day = Number(fullDateMatch[3]);
+    const parsed = new Date(year, month, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const shortDateMatch = text.match(/^(\d{1,2})[./-](\d{1,2})$/);
+  if (shortDateMatch) {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = Number(shortDateMatch[1]) - 1;
+    const day = Number(shortDateMatch[2]);
+    const parsed = new Date(year, month, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
 }
 
 export function pickCurrentTrip(trips) {
