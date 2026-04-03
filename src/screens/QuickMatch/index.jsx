@@ -8,6 +8,7 @@ const OPTION_ITEMS = [
   { key: "LOCALS", title: "여행자 밍글러", subtitle: "여행지 공유" },
   { key: "ANY", title: "무관", subtitle: "상관없어요" },
 ];
+const MIN_PROGRESS_VISIBLE_MS = 1200;
 
 function formatElapsed(seconds) {
   const safe = Number.isFinite(seconds) && seconds >= 0 ? Math.floor(seconds) : 0;
@@ -78,11 +79,16 @@ export function QuickMatch({ navigation, route }) {
 
     setSubmitting(true);
     setError(null);
+    const requestStartedAt = Date.now();
     try {
       await createQuickMatch({
         cityId,
         targetType: selected,
       });
+      const elapsedMs = Date.now() - requestStartedAt;
+      if (elapsedMs < MIN_PROGRESS_VISIBLE_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_PROGRESS_VISIBLE_MS - elapsedMs));
+      }
       if (!mountedRef.current) {
         return;
       }
