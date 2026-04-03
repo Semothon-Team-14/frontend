@@ -130,16 +130,17 @@ export function TripRecordDetail({ navigation, route }) {
       const tripStartAt = parseDate(`${loadedTrip?.startDate}T00:00:00`);
       const tripEndAt = parseDate(`${loadedTrip?.endDate}T23:59:59`);
 
-      const directCompanions = new Set();
       const chatRooms = chatRoomsResponse?.chatRooms ?? [];
-      chatRooms.forEach((room) => {
-        if (!room?.directChat) {
-          return;
-        }
-        if (!overlapsTripPeriod(room?.createdDateTime, room?.updatedDateTime, tripStartAt, tripEndAt)) {
-          return;
-        }
-        const companionId = (room?.participantUserIds ?? []).find((participantId) => Number(participantId) !== Number(userId));
+      const directRooms = chatRooms.filter((room) => Boolean(room?.directChat));
+      const overlappingDirectRooms = directRooms.filter((room) =>
+        overlapsTripPeriod(room?.createdDateTime, room?.updatedDateTime, tripStartAt, tripEndAt),
+      );
+      const selectedDirectRooms = overlappingDirectRooms.length > 0 ? overlappingDirectRooms : directRooms;
+      const directCompanions = new Set();
+      selectedDirectRooms.forEach((room) => {
+        const companionId = (room?.participantUserIds ?? []).find(
+          (participantId) => Number(participantId) !== Number(userId),
+        );
         if (Number(companionId) > 0) {
           directCompanions.add(Number(companionId));
         }
@@ -166,7 +167,11 @@ export function TripRecordDetail({ navigation, route }) {
         }),
       );
 
-      const relevantMingleRows = mingleRows.filter((row) => {
+      const joinedMingleRows = mingleRows.filter((row) =>
+        (row?.minglers ?? []).some((mingler) => Number(mingler?.userId) === Number(userId)),
+      );
+
+      const overlapMingleRows = joinedMingleRows.filter((row) => {
         const myMembership = (row?.minglers ?? []).find(
           (mingler) => Number(mingler?.userId) === Number(userId),
         );
@@ -181,6 +186,7 @@ export function TripRecordDetail({ navigation, route }) {
         }
         return overlapsTripWindow(row?.mingle?.meetDateTime, tripStartAt, tripEndAt);
       });
+      const relevantMingleRows = overlapMingleRows.length > 0 ? overlapMingleRows : joinedMingleRows;
 
       const mingleCompanionIds = new Set();
       relevantMingleRows.flatMap((row) => row?.minglers ?? []).forEach((mingler) => {
