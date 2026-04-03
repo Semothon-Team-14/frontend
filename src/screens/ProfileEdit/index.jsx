@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { SearchDropdown } from "../../components/SearchDropdown";
+import { WeeklyAvailabilityPicker } from "../../components/WeeklyAvailabilityPicker";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
@@ -54,6 +55,54 @@ function getNationalitySearchText(nationality) {
     .join(" ");
 }
 
+const DAY_DEFS = [
+  { key: "MON", ko: "월", en: "mon" },
+  { key: "TUE", ko: "화", en: "tue" },
+  { key: "WED", ko: "수", en: "wed" },
+  { key: "THU", ko: "목", en: "thu" },
+  { key: "FRI", ko: "금", en: "fri" },
+  { key: "SAT", ko: "토", en: "sat" },
+  { key: "SUN", ko: "일", en: "sun" },
+];
+
+function parseAvailableTimeText(rawText) {
+  const text = String(rawText || "").trim();
+  const defaultValue = {
+    days: [],
+    startTime: "09:00",
+    endTime: "18:00",
+  };
+  if (!text) {
+    return defaultValue;
+  }
+
+  const rangeMatch = text.match(/(\d{1,2}:\d{2})\s*[~\-]\s*(\d{1,2}:\d{2})/);
+  const startTime = rangeMatch?.[1] ? rangeMatch[1].padStart(5, "0") : defaultValue.startTime;
+  const endTime = rangeMatch?.[2] ? rangeMatch[2].padStart(5, "0") : defaultValue.endTime;
+  const lowerText = text.toLowerCase();
+  const days = DAY_DEFS.filter((day) => {
+    return text.includes(day.ko) || lowerText.includes(day.en);
+  }).map((day) => day.key);
+
+  return {
+    days,
+    startTime,
+    endTime,
+  };
+}
+
+function serializeAvailableTimeText(days, startTime, endTime, isKorean) {
+  if (!Array.isArray(days) || days.length === 0) {
+    return null;
+  }
+  const orderedDays = DAY_DEFS.filter((day) => days.includes(day.key));
+  const labels = orderedDays.map((day) =>
+    isKorean ? day.ko : day.en.toUpperCase(),
+  );
+  const dayText = labels.join(isKorean ? " · " : ", ");
+  return `${dayText} · ${startTime} ~ ${endTime}`;
+}
+
 export function ProfileEdit({ navigation }) {
   const { token, logout } = useAuth();
   const { tx, isKorean } = useLocale();
@@ -71,7 +120,9 @@ export function ProfileEdit({ navigation }) {
   const [nationalityQuery, setNationalityQuery] = useState("");
   const [selectedNationality, setSelectedNationality] = useState(null);
   const [localId, setLocalId] = useState(null);
-  const [availableTimeText, setAvailableTimeText] = useState("");
+  const [availableDays, setAvailableDays] = useState([]);
+  const [availableStartTime, setAvailableStartTime] = useState("09:00");
+  const [availableEndTime, setAvailableEndTime] = useState("18:00");
   const [selectedHomeMode, setSelectedHomeMode] = useState(getCurrentHomeMode());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -113,7 +164,12 @@ export function ProfileEdit({ navigation }) {
             : "",
         );
         setLocalId(Number(latestLocal?.id || 0) || null);
-        setAvailableTimeText(String(latestLocal?.availableTimeText || ""));
+        const parsedAvailable = parseAvailableTimeText(
+          latestLocal?.availableTimeText,
+        );
+        setAvailableDays(parsedAvailable.days);
+        setAvailableStartTime(parsedAvailable.startTime);
+        setAvailableEndTime(parsedAvailable.endTime);
       } catch {
         setError(tx("사용자 정보를 불러오지 못했습니다.", "Failed to load user profile."));
       }
@@ -144,6 +200,15 @@ export function ProfileEdit({ navigation }) {
       setError(tx("이름, 이메일, 전화번호를 입력해주세요.", "Please enter name, email, and phone."));
       return;
     }
+    if (availableDays.length > 0 && availableStartTime >= availableEndTime) {
+      setError(
+        tx(
+          "가능 시간의 시작은 종료보다 빨라야 합니다.",
+          "Available start time must be earlier than end time.",
+        ),
+      );
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -160,7 +225,12 @@ export function ProfileEdit({ navigation }) {
 
       if (selectedHomeMode === HOME_MODE_LOCAL && Number(localId) > 0) {
         await updateLocal(localId, {
-          availableTimeText: availableTimeText.trim() || null,
+          availableTimeText: serializeAvailableTimeText(
+            availableDays,
+            availableStartTime,
+            availableEndTime,
+            isKorean,
+          ),
         });
       }
 
@@ -389,11 +459,15 @@ export function ProfileEdit({ navigation }) {
           {Number(localId) > 0 ? (
             <>
               <Text style={styles.label}>{tx("가능 시간", "Available Time")}</Text>
-              <TextInput
-                style={styles.input}
-                value={availableTimeText}
-                onChangeText={setAvailableTimeText}
-                placeholder={tx("예: 토 · 09:30 ~ 21:40", "e.g. Sat · 09:30 ~ 21:40")}
+              <WeeklyAvailabilityPicker
+                days={availableDays}
+                startTime={availableStartTime}
+                endTime={availableEndTime}
+                onChange={(next) => {
+                  setAvailableDays(Array.isArray(next?.days) ? next.days : []);
+                  setAvailableStartTime(String(next?.startTime || "09:00"));
+                  setAvailableEndTime(String(next?.endTime || "18:00"));
+                }}
               />
             </>
           ) : (
