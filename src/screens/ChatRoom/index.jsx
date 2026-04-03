@@ -407,6 +407,11 @@ export function ChatRoom({ navigation, route }) {
 
           return (
             <View style={[styles.messageRow, mine && styles.messageRowMine]}>
+              {!mine ? (
+                <Text style={[styles.messageTimeOutside, styles.messageTimeOutsideOther]}>
+                  {formatClock(item.createdDateTime, locale)}
+                </Text>
+              ) : null}
               <View
                 style={[
                   styles.bubble,
@@ -447,12 +452,12 @@ export function ChatRoom({ navigation, route }) {
                     ) : null}
                   </View>
                 ) : null}
-                <Text
-                  style={[styles.messageTime, mine && styles.messageTimeMine]}
-                >
+              </View>
+              {mine ? (
+                <Text style={[styles.messageTimeOutside, styles.messageTimeOutsideMine]}>
                   {formatClock(item.createdDateTime, locale)}
                 </Text>
-              </View>
+              ) : null}
             </View>
           );
         }}
@@ -546,6 +551,7 @@ const styles = StyleSheet.create({
   },
   messageRow: {
     flexDirection: "row",
+    alignItems: "flex-end",
   },
   messageRowMine: {
     justifyContent: "flex-end",
@@ -606,13 +612,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textDecorationLine: "underline",
   },
-  messageTime: {
-    color: "#8B96A8",
+  messageTimeOutside: {
+    color: "#98A3B7",
     fontSize: 10,
-    alignSelf: "flex-end",
+    marginBottom: 4,
+    minWidth: 36,
   },
-  messageTimeMine: {
-    color: "#D6E7FF",
+  messageTimeOutsideOther: {
+    marginRight: 6,
+    textAlign: "left",
+  },
+  messageTimeOutsideMine: {
+    marginLeft: 6,
+    textAlign: "right",
   },
   inputRow: {
     flexDirection: "row",
