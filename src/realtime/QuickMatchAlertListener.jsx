@@ -204,6 +204,7 @@ export function QuickMatchAlertListener() {
     }
 
     const client = createQuickMatchSocketClient({
+      accessToken: token,
       onConnect: () => {
         setSocketReady(true);
         setSocketError(null);
@@ -232,7 +233,7 @@ export function QuickMatchAlertListener() {
         clearTimeout(bannerTimerRef.current);
       }
     };
-  }, [userId]);
+  }, [token, userId]);
 
   useEffect(() => {
     loadSubscribedCityIds();
@@ -258,8 +259,19 @@ export function QuickMatchAlertListener() {
     userSubscriptionRef.current?.unsubscribe();
     userSubscriptionRef.current = subscribeUserQuickMatches(clientRef.current, userId, async (event) => {
       clearIncomingQuickMatchIfResolved(event);
+      const eventType = event?.eventType;
+      const eventRequesterUserId = toNumberOrNull(event?.quickMatch?.requesterUserId);
+      const isRequesterEventForMe = eventRequesterUserId && eventRequesterUserId === userId;
 
-      if (event?.eventType === "QUICK_MATCH_ERROR") {
+      if (eventType === "QUICK_MATCH_CREATED") {
+        return;
+      }
+
+      if (eventType === "QUICK_MATCH_ACCEPTED" && !isRequesterEventForMe) {
+        return;
+      }
+
+      if (eventType === "QUICK_MATCH_ERROR") {
         if (pendingAcceptedQuickMatchId && event?.action === "QUICK_MATCH_ACCEPT") {
           setPendingAcceptedQuickMatchId(null);
         }
@@ -267,7 +279,7 @@ export function QuickMatchAlertListener() {
         return;
       }
 
-      if (event?.eventType === "QUICK_MATCH_ACCEPTED") {
+      if (eventType === "QUICK_MATCH_ACCEPTED") {
         const quickMatchId = toNumberOrNull(event?.quickMatch?.id);
         const acceptedChatRoomId = toNumberOrNull(event?.chatRoom?.id);
         const acceptedMingleId = toNumberOrNull(event?.quickMatch?.mingleId);
@@ -343,7 +355,7 @@ export function QuickMatchAlertListener() {
         const targetUserIds = event?.targetUserIds ?? [];
         const isRequester = requesterUserId && requesterUserId === userId;
         const isExplicitTargetUser = targetUserIds.some((id) => toNumberOrNull(id) === userId);
-        const isTargetUser = targetUserIds.length > 0 ? isExplicitTargetUser : true;
+        const isTargetUser = isExplicitTargetUser;
 
         if (eventType === "QUICK_MATCH_CREATED" && isRequester) {
           return;
