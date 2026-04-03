@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   roomName: {
     maxWidth: "86%",
     color: "#171A21",
-    fontSize: 14.5,
+    fontSize: 13,
     fontWeight: "800",
   },
   roomMemberCount: {
