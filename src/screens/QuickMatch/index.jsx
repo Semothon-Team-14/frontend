@@ -37,6 +37,14 @@ async function waitForSocketConnected(client, timeoutMs = 5000) {
   return Boolean(client?.connected);
 }
 
+function isAlreadyAcceptedQuickMatchError(event) {
+  if (event?.eventType !== "QUICK_MATCH_ERROR" || event?.action !== "QUICK_MATCH_ACCEPT") {
+    return false;
+  }
+  const reason = String(event?.reason || "").toLowerCase();
+  return reason.includes("already resolved") && reason.includes("accepted");
+}
+
 export function QuickMatch({ navigation, route }) {
   const { token } = useAuth();
   const userId = useMemo(
@@ -166,6 +174,15 @@ export function QuickMatch({ navigation, route }) {
         }
 
         if (event?.eventType === "QUICK_MATCH_ERROR" && submitting) {
+          if (isAlreadyAcceptedQuickMatchError(event) && isPendingQuickMatch) {
+            setSubmitting(false);
+            pendingRequestRef.current = {
+              cityId: null,
+              quickMatchId: null,
+            };
+            navigation.goBack();
+            return;
+          }
           setSubmitting(false);
           pendingRequestRef.current = {
             cityId: null,
