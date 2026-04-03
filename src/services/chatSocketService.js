@@ -40,6 +40,10 @@ export function createChatSocketClient({ onConnect, onError } = {}) {
       return new WebSocket(websocketUrl, ["v12.stomp", "v11.stomp", "v10.stomp"]);
     },
   });
+  // React Native WebSocket can mishandle STOMP text frame NULL terminators.
+  // Force binary frames to keep STOMP frame boundaries intact.
+  client.forceBinaryWSFrames = true;
+  client.appendMissingNULLonIncoming = true;
 
   client.onConnect = () => {
     debugLog("CONNECTED");
