@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth";
@@ -44,7 +51,9 @@ function roomSubtitle(room, tx) {
     return tx("밍글 수락됨", "Mingle accepted");
   }
 
-  return room.mingleId ? tx("여행 밍글 채팅", "Trip chat") : tx("그룹 채팅", "Group chat");
+  return room.mingleId
+    ? tx("여행 밍글 채팅", "Trip chat")
+    : tx("그룹 채팅", "Group chat");
 }
 
 export function Chats({ navigation, route }) {
@@ -65,7 +74,10 @@ export function Chats({ navigation, route }) {
       const participantIds = (room?.participantUserIds ?? []).filter(
         (participantId) => Number(participantId) !== Number(userId),
       );
-      if (participantIds.length === 1 && localUserIdSet.has(Number(participantIds[0]))) {
+      if (
+        participantIds.length === 1 &&
+        localUserIdSet.has(Number(participantIds[0]))
+      ) {
         mapping[room.id] = TAB_LOCAL;
         return;
       }
@@ -153,7 +165,10 @@ export function Chats({ navigation, route }) {
       setRooms([]);
       setUsersById({});
       setLocalUserIdSet(new Set());
-      setError(requestError?.message || tx("채팅방을 불러오지 못했습니다.", "Failed to load chat rooms."));
+      setError(
+        requestError?.message ||
+          tx("채팅방을 불러오지 못했습니다.", "Failed to load chat rooms."),
+      );
     } finally {
       setLoading(false);
     }
@@ -224,7 +239,11 @@ export function Chats({ navigation, route }) {
         </Pressable>
       </View>
 
-      {loading ? <Text style={styles.metaText}>{tx("불러오는 중...", "Loading...")}</Text> : null}
+      {loading ? (
+        <Text style={styles.metaText}>
+          {tx("불러오는 중...", "Loading...")}
+        </Text>
+      ) : null}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <FlatList
@@ -235,17 +254,25 @@ export function Chats({ navigation, route }) {
         renderItem={({ item }) => {
           const title = roomListLabel(item);
           const avatar = roomAvatarData(item);
-          const relativeTime = formatRelativeRoomTime(item.updatedDateTime, locale);
+          const relativeTime = formatRelativeRoomTime(
+            item.updatedDateTime,
+            locale,
+          );
           const memberCount = Number(item?.participantUserIds?.length || 0);
           const showMemberCount = !item?.directChat && memberCount > 0;
           return (
             <Pressable
               style={styles.roomItem}
-              onPress={() => navigation.navigate("ChatRoom", { chatRoomId: item.id })}
+              onPress={() =>
+                navigation.navigate("ChatRoom", { chatRoomId: item.id })
+              }
             >
               <View style={styles.avatarCircle}>
                 {avatar.type === "image" ? (
-                  <Image source={{ uri: avatar.imageUrl }} style={styles.avatarImage} />
+                  <Image
+                    source={{ uri: avatar.imageUrl }}
+                    style={styles.avatarImage}
+                  />
                 ) : avatar.type === "group" ? (
                   <Ionicons name="people" size={20} color="#1D4ED8" />
                 ) : (
@@ -255,8 +282,12 @@ export function Chats({ navigation, route }) {
 
               <View style={styles.roomMain}>
                 <View style={styles.roomNameRow}>
-                  <Text style={styles.roomName} numberOfLines={1}>{title}</Text>
-                  {showMemberCount ? <Text style={styles.roomMemberCount}>{memberCount}</Text> : null}
+                  <Text style={styles.roomName} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  {showMemberCount ? (
+                    <Text style={styles.roomMemberCount}>{memberCount}</Text>
+                  ) : null}
                 </View>
                 <Text style={styles.roomSubtitle} numberOfLines={1}>
                   {roomSubtitle(item, tx)} · {relativeTime}
@@ -266,7 +297,9 @@ export function Chats({ navigation, route }) {
               {Number(item?.unreadMessageCount || 0) > 0 ? (
                 <View style={styles.unreadBadge}>
                   <Text style={styles.unreadBadgeText}>
-                    {Number(item.unreadMessageCount) > 99 ? "99+" : String(item.unreadMessageCount)}
+                    {Number(item.unreadMessageCount) > 99
+                      ? "99+"
+                      : String(item.unreadMessageCount)}
                   </Text>
                 </View>
               ) : null}
@@ -275,7 +308,9 @@ export function Chats({ navigation, route }) {
         }}
         ListEmptyComponent={
           !loading ? (
-            <Text style={styles.metaText}>{tx("표시할 채팅방이 없습니다.", "No chat rooms yet.")}</Text>
+            <Text style={styles.metaText}>
+              {tx("표시할 채팅방이 없습니다.", "No chat rooms yet.")}
+            </Text>
           ) : null
         }
       />
@@ -301,8 +336,8 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerTitle: {
-    fontSize: 30,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "600",
     color: "#1A1C21",
   },
   tabRow: {
@@ -317,15 +352,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 8,
     paddingHorizontal: 13,
-    backgroundColor: "#E9EDF4",
+    backgroundColor: "white",
   },
   tabButtonActive: {
     backgroundColor: "#1D70FF",
   },
   tabText: {
     color: "#8A95A8",
-    fontSize: 24,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "500",
   },
   tabTextActive: {
     color: "#FFFFFF",
