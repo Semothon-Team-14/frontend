@@ -437,6 +437,19 @@ export function CreateTrip({ navigation, route }) {
         </View>
       </View>
 
+      <View style={styles.scanActionRow}>
+        <Pressable
+          style={[styles.scanActionButton, scanningTicket && styles.scanActionButtonDisabled]}
+          onPress={handlePickTicketFromGallery}
+          disabled={scanningTicket || submitting || loadingInitialData}
+        >
+          <Ionicons name="images-outline" size={16} color="#1D6FF2" />
+          <Text style={styles.scanActionButtonText}>
+            {tx("갤러리에서 티켓 스캔", "Scan Ticket from Gallery")}
+          </Text>
+        </Pressable>
+      </View>
+
       <View style={styles.scheduleHeader}>
         <Text style={styles.sectionTitle}>{tx("여행 일정", "Travel Dates")}</Text>
         <Text style={styles.scheduleMeta}>
@@ -640,6 +653,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  scanActionRow: {
+    alignItems: "flex-start",
+  },
+  scanActionButton: {
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#EAF2FF",
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  scanActionButtonDisabled: {
+    opacity: 0.65,
+  },
+  scanActionButtonText: {
+    color: "#1D6FF2",
+    fontSize: 12,
+    fontWeight: "700",
   },
   scheduleMeta: {
     color: "#A0A7B5",
