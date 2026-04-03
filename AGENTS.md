@@ -62,6 +62,7 @@
 - For screens/components that exist in Figma, frontend UI/UX must match Figma exactly.
 - Exception rule: for behaviors not yet designed or not present in Figma (for example temporary loading placeholders, transitional popups, or incomplete main-screen details), keep UX minimal and clean while staying consistent with existing visual patterns.
 - When a view is fully designed in Figma, implement it exactly and ensure related backend-driven behavior/contract usage in frontend reflects that same finalized flow.
+- Explicit rule: all views that are already finalized in Figma must be implemented and reflected in frontend exactly as designed.
 
 ## Quality and Validation
 
