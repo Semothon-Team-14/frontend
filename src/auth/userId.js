@@ -2,11 +2,15 @@ function decodeBase64Url(value) {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
 
-  if (typeof globalThis.atob !== "function") {
-    throw new Error("atob is unavailable in this runtime");
+  if (typeof globalThis.atob === "function") {
+    return globalThis.atob(padded);
   }
 
-  return globalThis.atob(padded);
+  if (typeof globalThis.Buffer?.from === "function") {
+    return globalThis.Buffer.from(padded, "base64").toString("utf-8");
+  }
+
+  throw new Error("No base64 decoder available in this runtime");
 }
 
 export function decodeUserIdFromToken(token) {
