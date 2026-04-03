@@ -13,6 +13,12 @@ import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
 import { fetchChatRooms, fetchMingles, fetchUsers } from "../../services";
+import {
+  getCurrentHomeMode,
+  HOME_MODE_LOCAL,
+  HOME_MODE_TRAVELER,
+  subscribeHomeMode,
+} from "../../state/homeMode";
 
 const TAB_LOCAL = "LOCAL";
 const TAB_TRAVELER = "TRAVELER";
@@ -66,6 +72,7 @@ export function Chats({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState(TAB_LOCAL);
+  const [homeMode, setHomeMode] = useState(getCurrentHomeMode());
   const handledAutoOpenRef = useRef(new Set());
 
   const roomTabTypeById = useMemo(() => {
@@ -77,14 +84,26 @@ export function Chats({ navigation, route }) {
         return;
       }
 
-      if (participantCount === 2 && room?.otherParticipantLocal === true) {
-        mapping[room.id] = TAB_LOCAL;
+      if (participantCount === 2) {
+        const opponentLocal = room?.otherParticipantLocal === true;
+        const opponentTraveler = room?.otherParticipantTraveler === true;
+        if (homeMode === HOME_MODE_TRAVELER) {
+          mapping[room.id] = opponentLocal ? TAB_LOCAL : TAB_TRAVELER;
+          return;
+        }
+
+        if (homeMode === HOME_MODE_LOCAL) {
+          mapping[room.id] = opponentTraveler ? TAB_TRAVELER : TAB_LOCAL;
+          return;
+        }
+
+        mapping[room.id] = opponentLocal ? TAB_LOCAL : TAB_TRAVELER;
         return;
       }
       mapping[room.id] = TAB_TRAVELER;
     });
     return mapping;
-  }, [rooms]);
+  }, [homeMode, rooms]);
 
   const localRooms = useMemo(
     () => rooms.filter((room) => roomTabTypeById[room?.id] === TAB_LOCAL),
@@ -190,6 +209,12 @@ export function Chats({ navigation, route }) {
       loadRooms();
     }, [loadRooms]),
   );
+
+  useEffect(() => {
+    return subscribeHomeMode((nextMode) => {
+      setHomeMode(nextMode);
+    });
+  }, []);
 
   useEffect(() => {
     const requestedChatRoomId = Number(route?.params?.chatRoomId);
