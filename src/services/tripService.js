@@ -8,12 +8,14 @@ export function fetchTrip(tripId) {
   return get(`/trips/${tripId}`);
 }
 
-export function createTrip({ title, startDate, endDate, cityId }) {
+export function createTrip({ title, startDate, endDate, cityId, departureDateTime, departureLandingDateTime }) {
   return post('/trips', {
     title,
     startDate,
     endDate,
     cityId,
+    departureDateTime: departureDateTime || null,
+    departureLandingDateTime: departureLandingDateTime || null,
   });
 }
 
