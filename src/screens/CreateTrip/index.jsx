@@ -171,6 +171,8 @@ export function CreateTrip({ navigation, route }) {
             const latestLocal = [...(localsResponse?.locals ?? [])]
               .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))[0] || null;
             const matchedFromCity = dedupedCities.find(
+              (city) => Number(city?.id) === Number(trip?.fromCityId),
+            ) || dedupedCities.find(
               (city) => Number(city?.id) === Number(latestLocal?.city?.id),
             ) || latestLocal?.city || null;
             setSelectedCity(matchedCity);
@@ -352,6 +354,7 @@ export function CreateTrip({ navigation, route }) {
       const payload = {
         title: resolvedTitle,
         cityId: Number(selectedCity.id),
+        fromCityId: fromCity?.id ? Number(fromCity.id) : null,
         startDate,
         endDate,
         departureDateTime: departureDateTime || null,
