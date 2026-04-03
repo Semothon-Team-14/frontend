@@ -156,7 +156,13 @@ export function QuickMatch({ navigation, route }) {
             cityId: null,
             quickMatchId: null,
           };
-          navigation.goBack();
+          const acceptedChatRoomId = Number(event?.chatRoom?.id || 0);
+          navigation.navigate("Tabs", {
+            screen: "Chats",
+            ...(acceptedChatRoomId > 0
+              ? { params: { chatRoomId: acceptedChatRoomId } }
+              : {}),
+          });
           return;
         }
 
