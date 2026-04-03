@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   ImageBackground,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -54,6 +55,26 @@ const CHIPS = [
   { id: "cafe", labelKo: "#카페", labelEn: "#Cafe", supported: true },
   { id: "shopping", labelKo: "#쇼핑", labelEn: "#Shopping", supported: false },
   { id: "fun", labelKo: "#놀거리", labelEn: "#Activities", supported: false },
+];
+const NEARBY_MINGLER_OPTIONS = [
+  {
+    key: "LOCAL",
+    labelKo: "로컬\n밍글러",
+    labelEn: "Local\nMinglers",
+    image: require("../../images/nearby_mingler_local.jpg"),
+  },
+  {
+    key: "TRAVELER",
+    labelKo: "여행자\n밍글러",
+    labelEn: "Traveler\nMinglers",
+    image: require("../../images/nearby_mingler_traveler.jpg"),
+  },
+  {
+    key: "ANY",
+    labelKo: "무관",
+    labelEn: "Any",
+    image: require("../../images/nearby_mingler_any.jpg"),
+  },
 ];
 function ChipRow({ activeId, onSelect, tx }) {
   return (
@@ -163,6 +184,8 @@ export function MainScreen() {
   );
 
   const [homeMode, setHomeMode] = useState(getCurrentHomeMode());
+  const [nearbyMinglerModalVisible, setNearbyMinglerModalVisible] = useState(false);
+  const [nearbyMinglerTarget, setNearbyMinglerTarget] = useState("ANY");
   const [activeChip, setActiveChip] = useState("restaurant");
   const [currentTrip, setCurrentTrip] = useState(null);
   const [tripCity, setTripCity] = useState(null);
@@ -584,6 +607,17 @@ export function MainScreen() {
     };
   }, [localMarkers, selectedCityCenter]);
 
+  function navigateToNearby(targetType) {
+    navigation.navigate("Nearby", {
+      cityId: selectedCity?.id,
+      cityName: selectedCityDisplayName || "",
+      cityLatitude: nearbyCityCenter?.latitude ?? null,
+      cityLongitude: nearbyCityCenter?.longitude ?? null,
+      hideIdealMinglerPopup: true,
+      mingleTargetType: targetType || "ANY",
+    });
+  }
+
   useEffect(() => {
     return subscribeHomeMode((nextMode) => {
       setHomeMode(nextMode);
@@ -631,14 +665,10 @@ export function MainScreen() {
         {homeMode === HOME_MODE_TRAVELER ? (
           <View style={styles.quickRow}>
             <TouchableWithoutFeedback
-              onPress={() =>
-                navigation.navigate("Nearby", {
-                  cityId: selectedCity?.id,
-                  cityName: selectedCityDisplayName || "",
-                  cityLatitude: nearbyCityCenter?.latitude ?? null,
-                  cityLongitude: nearbyCityCenter?.longitude ?? null,
-                })
-              }
+              onPress={() => {
+                setNearbyMinglerTarget("ANY");
+                setNearbyMinglerModalVisible(true);
+              }}
             >
               <View style={styles.nearbyCard}>
                 <ImageBackground
@@ -966,6 +996,62 @@ export function MainScreen() {
           </View>
           ) : null}
       </ScrollView>
+      <Modal
+        visible={nearbyMinglerModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setNearbyMinglerModalVisible(false)}
+      >
+        <View style={styles.nearbyMinglerModalOverlay}>
+          <View style={styles.nearbyMinglerModalCard}>
+            <View style={styles.nearbyMinglerModalHandle} />
+            <View style={styles.nearbyMinglerModalTitleRow}>
+              <Ionicons name="checkmark-circle" size={24} color="#1C73F0" />
+              <Text style={styles.nearbyMinglerModalTitle}>
+                {tx("원하는 밍글러를 선택해주세요!", "Choose the minglers you want!")}
+              </Text>
+            </View>
+            <View style={styles.nearbyMinglerOptionRow}>
+              {NEARBY_MINGLER_OPTIONS.map((option) => {
+                const selected = nearbyMinglerTarget === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    style={[
+                      styles.nearbyMinglerOptionCard,
+                      selected && styles.nearbyMinglerOptionCardSelected,
+                    ]}
+                    onPress={() => setNearbyMinglerTarget(option.key)}
+                  >
+                    <ImageBackground
+                      source={option.image}
+                      style={styles.nearbyMinglerOptionImage}
+                      imageStyle={styles.nearbyMinglerOptionImageStyle}
+                    >
+                      <View style={styles.nearbyMinglerOptionOverlay} />
+                      <Text style={styles.nearbyMinglerOptionLabel}>
+                        {tx(option.labelKo, option.labelEn)}
+                      </Text>
+                    </ImageBackground>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable
+              style={styles.nearbyMinglerConfirmButton}
+              onPress={() => {
+                setNearbyMinglerModalVisible(false);
+                // TODO: Filter list/map by creator type when backend filtering is ready.
+                navigateToNearby(nearbyMinglerTarget);
+              }}
+            >
+              <Text style={styles.nearbyMinglerConfirmButtonText}>
+                {tx("확인", "Confirm")}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1350,5 +1436,85 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     resizeMode: "contain",
+  },
+  nearbyMinglerModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.42)",
+    justifyContent: "flex-end",
+    paddingHorizontal: 12,
+    paddingBottom: 18,
+  },
+  nearbyMinglerModalCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
+  },
+  nearbyMinglerModalHandle: {
+    width: 64,
+    height: 7,
+    borderRadius: 99,
+    backgroundColor: "#CDD2DB",
+    alignSelf: "center",
+    marginBottom: 14,
+  },
+  nearbyMinglerModalTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 14,
+  },
+  nearbyMinglerModalTitle: {
+    color: "#111827",
+    fontSize: 19 / 1.05,
+    fontWeight: "800",
+  },
+  nearbyMinglerOptionRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  nearbyMinglerOptionCard: {
+    flex: 1,
+    borderRadius: 22,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#EEF0F4",
+  },
+  nearbyMinglerOptionCardSelected: {
+    borderColor: "#1C73F0",
+    borderWidth: 2,
+  },
+  nearbyMinglerOptionImage: {
+    height: 142,
+    justifyContent: "flex-end",
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+  },
+  nearbyMinglerOptionImageStyle: {
+    borderRadius: 20,
+  },
+  nearbyMinglerOptionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(241, 245, 249, 0.74)",
+  },
+  nearbyMinglerOptionLabel: {
+    color: "#9AA3B2",
+    fontSize: 18,
+    fontWeight: "800",
+    zIndex: 1,
+  },
+  nearbyMinglerConfirmButton: {
+    marginTop: 18,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: "#B8BEC9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nearbyMinglerConfirmButtonText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "800",
   },
 });
