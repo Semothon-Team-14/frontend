@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
+import { fetchChatRooms } from "../../services/chatService";
 import { fetchMingleMinglers, fetchMingles, fetchTrips, fetchUser, fetchUsers } from "../../services";
 import { fetchAllCities } from "../../services/placeService";
 import { pickCurrentTrip } from "../../utils/trip";
@@ -69,6 +70,7 @@ export function MyPage({ navigation }) {
   const [trips, setTrips] = useState([]);
   const [usersById, setUsersById] = useState({});
   const [mingleCompanionUserIdsByTrip, setMingleCompanionUserIdsByTrip] = useState({});
+  const [visitedPlaceNamesByTrip, setVisitedPlaceNamesByTrip] = useState({});
   const [citiesById, setCitiesById] = useState({});
   const [currentCity, setCurrentCity] = useState(null);
 
@@ -124,11 +126,12 @@ export function MyPage({ navigation }) {
 
   const loadMyPage = useCallback(async () => {
     try {
-      const [userResponse, tripsResponse, allCities, usersResponse] = await Promise.all([
+      const [userResponse, tripsResponse, allCities, usersResponse, chatRoomsResponse] = await Promise.all([
         fetchUser(userId),
         fetchTrips(),
         fetchAllCities(),
         fetchUsers(),
+        fetchChatRooms(),
       ]);
 
       const loadedUser = userResponse?.user ?? null;
@@ -143,13 +146,18 @@ export function MyPage({ navigation }) {
         return acc;
       }, {});
       const companionMapByTripId = {};
+      const placeNamesByTripId = {};
       const mingleRowsByCityId = {};
+      const directRooms = (chatRoomsResponse?.chatRooms ?? []).filter((room) =>
+        Boolean(room?.directChat),
+      );
       await Promise.all(
         loadedTrips.map(async (trip) => {
           const tripId = Number(trip?.id || 0);
           const cityId = Number(trip?.cityId || 0);
           if (tripId <= 0 || cityId <= 0) {
             companionMapByTripId[tripId] = [];
+            placeNamesByTripId[tripId] = [];
             return;
           }
 
@@ -176,6 +184,7 @@ export function MyPage({ navigation }) {
           const tripStartAt = parseDate(`${trip?.startDate}T00:00:00`);
           const tripEndAt = parseDate(`${trip?.endDate}T23:59:59`);
           const companionIds = new Set();
+          const placeNames = new Set();
 
           (mingleRowsByCityId[cityId] ?? []).forEach((row) => {
             const minglers = row?.minglers ?? [];
@@ -210,9 +219,43 @@ export function MyPage({ navigation }) {
                 companionIds.add(nextUserId);
               }
             });
+
+            const placeName = String(row?.mingle?.placeName || "").trim();
+            if (placeName.length > 0) {
+              placeNames.add(placeName);
+            }
           });
 
+          directRooms
+            .filter((room) => {
+              if (!tripStartAt || !tripEndAt) {
+                return true;
+              }
+              const updatedOverlaps = overlapsDateTimeRange(
+                room?.updatedDateTime,
+                room?.updatedDateTime,
+                tripStartAt,
+                tripEndAt,
+              );
+              const createdOverlaps = overlapsDateTimeRange(
+                room?.createdDateTime,
+                room?.createdDateTime,
+                tripStartAt,
+                tripEndAt,
+              );
+              return updatedOverlaps || createdOverlaps;
+            })
+            .forEach((room) => {
+              const otherUserId = (room?.participantUserIds ?? [])
+                .map((id) => Number(id || 0))
+                .find((id) => id > 0 && id !== Number(userId));
+              if (otherUserId) {
+                companionIds.add(otherUserId);
+              }
+            });
+
           companionMapByTripId[tripId] = Array.from(companionIds);
+          placeNamesByTripId[tripId] = Array.from(placeNames).slice(0, 2);
         }),
       );
       const currentTrip = pickCurrentTrip(loadedTrips);
@@ -222,6 +265,7 @@ export function MyPage({ navigation }) {
       setTrips(loadedTrips);
       setUsersById(userMap);
       setMingleCompanionUserIdsByTrip(companionMapByTripId);
+      setVisitedPlaceNamesByTrip(placeNamesByTripId);
       setCitiesById(cityMap);
       setCurrentCity(city);
     } catch {
@@ -229,6 +273,7 @@ export function MyPage({ navigation }) {
       setTrips([]);
       setUsersById({});
       setMingleCompanionUserIdsByTrip({});
+      setVisitedPlaceNamesByTrip({});
       setCitiesById({});
       setCurrentCity(null);
     }
@@ -368,6 +413,7 @@ export function MyPage({ navigation }) {
             const safeTripId = Number(trip?.id || 0);
             const recentTripChatAvatars = getRecentTripChatAvatars(trip);
             const cardImageUrl = tripCity?.representativeImageUrl || null;
+            const placeNames = visitedPlaceNamesByTrip[Number(trip?.id || 0)] ?? [];
             const profileImageAvatars = recentTripChatAvatars
               .filter((avatar) => Boolean(avatar?.imageUrl))
               .slice(0, 3);
@@ -405,6 +451,11 @@ export function MyPage({ navigation }) {
                   ) : null}
                   <Text style={styles.tripTitle}>{isKorean ? getCityNameKo(tripCity) : getCityNameEn(tripCity)}</Text>
                   <Text style={styles.tripMeta}>{getTripMetaText(trip, isKorean)}</Text>
+                  {placeNames.length > 0 ? (
+                    <Text style={styles.tripPlaces} numberOfLines={1}>
+                      {placeNames.join(" · ")}
+                    </Text>
+                  ) : null}
                 </View>
               </Pressable>
             );
@@ -589,6 +640,12 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.9)",
     fontWeight: "600",
     lineHeight: 20,
+  },
+  tripPlaces: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "rgba(255,255,255,0.9)",
+    fontWeight: "700",
   },
   tripAvatarRow: {
     flexDirection: "row",
