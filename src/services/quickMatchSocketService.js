@@ -14,8 +14,8 @@ function parsePayload(rawBody) {
   }
 }
 
-export function createQuickMatchSocketClient({ onConnect, onError } = {}) {
-  const token = getAccessToken();
+export function createQuickMatchSocketClient({ onConnect, onError, accessToken } = {}) {
+  const token = accessToken || getAccessToken();
   const websocketUrl = getChatWebSocketUrl();
   debugLog("INIT", {
     websocketUrl,
