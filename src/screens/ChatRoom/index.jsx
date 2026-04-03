@@ -423,7 +423,7 @@ export function ChatRoom({ navigation, route }) {
 
           return (
             <View style={[styles.messageRow, mine && styles.messageRowMine]}>
-              {!mine ? (
+              {mine ? (
                 <Text style={[styles.messageTimeOutside, styles.messageTimeOutsideOther]}>
                   {formatClock(item.createdDateTime, locale)}
                 </Text>
@@ -469,7 +469,7 @@ export function ChatRoom({ navigation, route }) {
                   </View>
                 ) : null}
               </View>
-              {mine ? (
+              {!mine ? (
                 <Text style={[styles.messageTimeOutside, styles.messageTimeOutsideMine]}>
                   {formatClock(item.createdDateTime, locale)}
                 </Text>
@@ -636,11 +636,11 @@ const styles = StyleSheet.create({
   },
   messageTimeOutsideOther: {
     marginRight: 6,
-    textAlign: "left",
+    textAlign: "right",
   },
   messageTimeOutsideMine: {
     marginLeft: 6,
-    textAlign: "right",
+    textAlign: "left",
   },
   inputRow: {
     flexDirection: "row",
