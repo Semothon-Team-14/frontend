@@ -142,11 +142,8 @@ export function QuickMatchAlertListener() {
   }, [incomingActionLoading]);
 
   const dismissIncomingQuickMatch = useCallback(() => {
-    if (incomingActionLoading) {
-      return;
-    }
     setIncomingQuickMatch(null);
-  }, [incomingActionLoading]);
+  }, []);
 
   const handleAcceptIncomingQuickMatch = useCallback(async () => {
     const quickMatchId = toNumberOrNull(incomingQuickMatch?.quickMatch?.id);
@@ -178,6 +175,8 @@ export function QuickMatchAlertListener() {
       return;
     }
 
+    // Optimistically close immediately for responsive UX.
+    setIncomingQuickMatch(null);
     setIncomingActionLoading(true);
     resolvedQuickMatchIdsRef.current.add(quickMatchId);
     try {
@@ -479,7 +478,7 @@ export function QuickMatchAlertListener() {
       {hasIncomingQuickMatch ? (
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Pressable style={styles.modalCloseButton} onPress={dismissIncomingQuickMatch} disabled={incomingActionLoading}>
+            <Pressable style={styles.modalCloseButton} onPress={dismissIncomingQuickMatch}>
               <Text style={styles.modalCloseText}>×</Text>
             </Pressable>
             <Text style={styles.modalTitle}>빠른 매칭 요청이 도착했어요</Text>
