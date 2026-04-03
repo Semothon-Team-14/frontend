@@ -3,8 +3,9 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
-import { createQuickMatch } from "../../services/quickMatchService";
+import { createQuickMatch, fetchQuickMatch } from "../../services/quickMatchService";
 import { joinMingleChatRoom } from "../../services/chatService";
+import { fetchChatRooms } from "../../services";
 import {
   createQuickMatchSocketClient,
   publishCreateQuickMatch,
@@ -45,6 +46,41 @@ function isAlreadyAcceptedQuickMatchError(event) {
   }
   const reason = String(event?.reason || "").toLowerCase();
   return reason.includes("already resolved") && reason.includes("accepted");
+}
+
+async function resolveDirectQuickMatchChatRoomId({ quickMatchId, acceptedByUserId }) {
+  let resolvedAcceptedByUserId = Number(acceptedByUserId || 0);
+
+  if (resolvedAcceptedByUserId <= 0 && quickMatchId > 0) {
+    try {
+      const detail = await fetchQuickMatch(quickMatchId);
+      resolvedAcceptedByUserId = Number(detail?.quickMatch?.acceptedByUserId || 0);
+    } catch {
+      resolvedAcceptedByUserId = 0;
+    }
+  }
+
+  if (resolvedAcceptedByUserId <= 0) {
+    return 0;
+  }
+
+  try {
+    const response = await fetchChatRooms();
+    const rooms = response?.chatRooms ?? [];
+    const matchedRoom = rooms
+      .filter((room) => room?.directChat)
+      .filter((room) =>
+        (room?.participantUserIds ?? []).some(
+          (participantId) => Number(participantId || 0) === resolvedAcceptedByUserId,
+        ),
+      )
+      .sort((a, b) =>
+        String(b?.updatedDateTime || "").localeCompare(String(a?.updatedDateTime || "")),
+      )[0];
+    return Number(matchedRoom?.id || 0);
+  } catch {
+    return 0;
+  }
 }
 
 export function QuickMatch({ navigation, route }) {
@@ -160,6 +196,14 @@ export function QuickMatch({ navigation, route }) {
           const acceptedChatRoomId = Number(event?.chatRoom?.id || 0);
           if (acceptedChatRoomId > 0) {
             navigation.navigate("ChatRoom", { chatRoomId: acceptedChatRoomId });
+            return;
+          }
+          const resolvedDirectChatRoomId = await resolveDirectQuickMatchChatRoomId({
+            quickMatchId: quickMatchId || Number(match?.id || 0),
+            acceptedByUserId: Number(event?.quickMatch?.acceptedByUserId || 0),
+          });
+          if (resolvedDirectChatRoomId > 0) {
+            navigation.navigate("ChatRoom", { chatRoomId: resolvedDirectChatRoomId });
             return;
           }
           const acceptedMingleId = Number(event?.quickMatch?.mingleId || 0);
