@@ -46,11 +46,16 @@ function formatClock(value, locale) {
 function uniqueMessages(messages) {
   return [...messages]
     .filter((message) => message?.id)
-    .sort((a, b) =>
-      String(a.createdDateTime || "").localeCompare(
-        String(b.createdDateTime || ""),
-      ),
-    )
+    .sort((a, b) => {
+      const aMs = Date.parse(String(a?.createdDateTime || ""));
+      const bMs = Date.parse(String(b?.createdDateTime || ""));
+      const safeAMs = Number.isFinite(aMs) ? aMs : 0;
+      const safeBMs = Number.isFinite(bMs) ? bMs : 0;
+      if (safeAMs !== safeBMs) {
+        return safeAMs - safeBMs;
+      }
+      return String(a?.id || "").localeCompare(String(b?.id || ""));
+    })
     .filter(
       (message, index, array) =>
         array.findIndex((item) => item.id === message.id) === index,
@@ -79,9 +84,19 @@ export function ChatRoom({ navigation, route }) {
 
   const renderedMessages = useMemo(() => {
     return [...messages, ...pendingMessages].sort((a, b) => {
-      return String(a.createdDateTime || "").localeCompare(
-        String(b.createdDateTime || ""),
-      );
+      const aMs = Date.parse(String(a?.createdDateTime || ""));
+      const bMs = Date.parse(String(b?.createdDateTime || ""));
+      const safeAMs = Number.isFinite(aMs) ? aMs : 0;
+      const safeBMs = Number.isFinite(bMs) ? bMs : 0;
+      if (safeAMs !== safeBMs) {
+        return safeAMs - safeBMs;
+      }
+      const aOrder = Number(a?.clientOrder || 0);
+      const bOrder = Number(b?.clientOrder || 0);
+      if (aOrder !== bOrder) {
+        return aOrder - bOrder;
+      }
+      return String(a?.id || "").localeCompare(String(b?.id || ""));
     });
   }, [messages, pendingMessages]);
 
@@ -289,6 +304,7 @@ export function ChatRoom({ navigation, route }) {
       translatedContent: null,
       senderUserId: userId,
       createdDateTime: new Date().toISOString(),
+      clientOrder: Date.now(),
       pending: true,
       status: "pending",
     };
