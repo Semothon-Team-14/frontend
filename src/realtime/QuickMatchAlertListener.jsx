@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../auth";
 import { decodeUserIdFromToken } from "../auth/userId";
 import { acceptQuickMatch, declineQuickMatch, fetchLocals, fetchTrips } from "../services";
@@ -41,6 +41,11 @@ function isAlreadyAcceptedError(event) {
   }
   const reason = String(event?.reason || "").toLowerCase();
   return reason.includes("already resolved") && reason.includes("accepted");
+}
+
+function isWebSocketReceiptTimeout(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("receipt timeout");
 }
 
 function unsubscribeAllCitySubscriptions(containerRef) {
@@ -155,7 +160,14 @@ export function QuickMatchAlertListener() {
     resolvedQuickMatchIdsRef.current.add(quickMatchId);
     try {
       if (clientRef.current?.connected) {
-        await publishAcceptQuickMatch(clientRef.current, quickMatchId);
+        try {
+          await publishAcceptQuickMatch(clientRef.current, quickMatchId);
+        } catch (publishError) {
+          if (!isWebSocketReceiptTimeout(publishError)) {
+            throw publishError;
+          }
+          await acceptQuickMatch(quickMatchId);
+        }
       } else {
         await acceptQuickMatch(quickMatchId);
       }
@@ -163,6 +175,19 @@ export function QuickMatchAlertListener() {
       setIncomingQuickMatch(null);
       showInAppBanner("빠른 매칭 수락 요청을 보냈어요.");
     } catch (error) {
+      if (
+        String(error?.message || "").toLowerCase().includes("already resolved") &&
+        String(error?.message || "").toLowerCase().includes("accepted")
+      ) {
+        Alert.alert(
+          "빠른 매칭 안내",
+          "다른 밍글러가 먼저 수락했어요.",
+        );
+        setIncomingQuickMatch(null);
+        setPendingAcceptedQuickMatchId(null);
+        setIncomingActionLoading(false);
+        return;
+      }
       showInAppBanner(error?.message || "빠른 매칭 수락에 실패했습니다.");
     } finally {
       setIncomingActionLoading(false);
@@ -311,12 +336,10 @@ export function QuickMatchAlertListener() {
           if (pendingAcceptedQuickMatchId) {
             setPendingAcceptedQuickMatchId(null);
           }
-          if (navigationRef.isReady()) {
-            navigationRef.navigate("Tabs", {
-              screen: "Chats",
-            });
-          }
-          showInAppBanner("빠른 매칭이 이미 수락되어 채팅으로 이동합니다.");
+          Alert.alert(
+            "빠른 매칭 안내",
+            "다른 밍글러가 먼저 수락했어요.",
+          );
           return;
         }
         if (pendingAcceptedQuickMatchId && event?.action === "QUICK_MATCH_ACCEPT") {
