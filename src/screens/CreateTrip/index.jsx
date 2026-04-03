@@ -412,6 +412,7 @@ export function CreateTrip({ navigation, route }) {
               </Pressable>
             </View>
             <Text style={styles.tripLocationSubtitle}>{getCitySubName(fromCity, isKorean) || String(fromAirportCode || EMPTY_FIELD)}</Text>
+            <View style={styles.tripInfoDivider} />
             <Text style={styles.tripLocationTime}>{formatDateMeta(toDateOnly(departureDateTime) || startDate, locale)}</Text>
           </View>
         </View>
@@ -430,6 +431,7 @@ export function CreateTrip({ navigation, route }) {
               </Pressable>
             </View>
             <Text style={styles.tripLocationSubtitle}>{getCitySubName(selectedCity, isKorean) || String(toAirportCode || EMPTY_FIELD)}</Text>
+            <View style={styles.tripInfoDivider} />
             <Text style={styles.tripLocationTime}>{formatDateMeta(endDate || toDateOnly(departureLandingDateTime) || startDate, locale)}</Text>
           </View>
         </View>
@@ -595,17 +597,20 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 12,
     minHeight: 120,
+    alignItems: "center",
   },
   tripCityEditRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    justifyContent: "center",
   },
   tripLocationTitle: {
     color: "#20232A",
     fontSize: 34 / 2,
     fontWeight: "800",
     letterSpacing: -0.3,
+    textAlign: "center",
   },
   tripLocationTitleTo: {
     color: "#1D6FF2",
@@ -615,12 +620,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     marginTop: 2,
+    textAlign: "center",
+  },
+  tripInfoDivider: {
+    width: "100%",
+    marginTop: 8,
+    marginBottom: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#EBEDF2",
   },
   tripLocationTime: {
-    marginTop: 2,
     color: "#A2AABA",
     fontSize: 10.5,
     fontWeight: "700",
+    textAlign: "center",
   },
   scheduleHeader: {
     marginTop: 10,
