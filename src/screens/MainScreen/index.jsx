@@ -669,14 +669,11 @@ export function MainScreen() {
                 onPress={() => navigation.navigate("Chats")}
               >
                 <View style={styles.quickButtonCard}>
-                  <View style={styles.communityIconWrap}>
-                    <Speech />
-                    <View style={styles.communityBadge}>
-                      <Text style={styles.communityBadgeText}>2</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.quickButtonText}>{tx("로컬 커뮤니티", "Local Community")}</Text>
+                <View style={styles.communityIconWrap}>
+                  <Speech />
                 </View>
+                <Text style={styles.quickButtonText}>{tx("로컬 커뮤니티", "Local Community")}</Text>
+              </View>
               </TouchableWithoutFeedback>
             </View>
           </View>
@@ -752,9 +749,6 @@ export function MainScreen() {
               <View style={styles.localActionButtonCard}>
                 <View style={styles.communityIconWrap}>
                   <Speech />
-                  <View style={styles.communityBadgeLocal}>
-                    <Text style={styles.communityBadgeText}>2</Text>
-                  </View>
                 </View>
                 <Text style={styles.quickButtonText}>{tx("로컬 커뮤니티", "Local Community")}</Text>
               </View>
@@ -1110,33 +1104,6 @@ const styles = StyleSheet.create({
   communityIconWrap: {
     position: "relative",
     width: 28,
-  },
-  communityBadge: {
-    position: "absolute",
-    right: -125,
-    top: -18,
-    backgroundColor: "#1C73F0",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  communityBadgeLocal: {
-    position: "absolute",
-    right: -12,
-    top: -10,
-    backgroundColor: "#1C73F0",
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  communityBadgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
   },
   sectionHeader: {
     flexDirection: "row",
