@@ -32,6 +32,17 @@ function formatElapsed(seconds) {
   return `${minutes}:${remainSeconds}`;
 }
 
+async function waitForSocketConnected(client, timeoutMs = 5000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (client?.connected) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  return Boolean(client?.connected);
+}
+
 export function QuickMatch({ navigation, route }) {
   const { token } = useAuth();
   const userId = useMemo(() => Number(decodeUserIdFromToken(token) || 0), [token]);
@@ -233,8 +244,9 @@ export function QuickMatch({ navigation, route }) {
     };
     const requestStartedAt = Date.now();
     try {
-      if (!clientRef.current?.connected) {
-        throw new Error("소켓 연결이 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
+      const connected = await waitForSocketConnected(clientRef.current, 5000);
+      if (!connected) {
+        throw new Error("실시간 연결 준비 중입니다. 잠시 후 다시 시도해주세요.");
       }
       await publishCreateQuickMatch(clientRef.current, {
         cityId,
@@ -332,7 +344,11 @@ export function QuickMatch({ navigation, route }) {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {!socketReady ? <Text style={styles.metaText}>실시간 연결 중...</Text> : null}
 
-        <Pressable style={[styles.confirmBtn, submitting && styles.confirmBtnDisabled]} onPress={handleConfirm} disabled={submitting}>
+        <Pressable
+          style={[styles.confirmBtn, (submitting || (!socketReady && selectionStep === STEP_TARGET)) && styles.confirmBtnDisabled]}
+          onPress={handleConfirm}
+          disabled={submitting || (!socketReady && selectionStep === STEP_TARGET)}
+        >
           <Text style={styles.confirmText}>
             {submitting ? "확인 중..." : selectionStep === STEP_INTEREST ? "다음" : "확인"}
           </Text>
