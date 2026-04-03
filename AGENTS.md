@@ -61,6 +61,7 @@
 - When a design token is reused, extract it into constants/theme files instead of repeating magic numbers.
 - For screens/components that exist in Figma, frontend UI/UX must match Figma exactly.
 - Exception rule: for behaviors not yet designed or not present in Figma (for example temporary loading placeholders, transitional popups, or incomplete main-screen details), keep UX minimal and clean while staying consistent with existing visual patterns.
+- When a view is fully designed in Figma, implement it exactly and ensure related backend-driven behavior/contract usage in frontend reflects that same finalized flow.
 
 ## Quality and Validation
 
