@@ -682,14 +682,7 @@ export function MainScreen() {
         {homeMode === HOME_MODE_LOCAL ? (
           <Pressable
             style={styles.localProfileCard}
-            onPress={() =>
-              navigation.navigate("Nearby", {
-                cityId: selectedCity?.id,
-                cityName: selectedCityDisplayName || "",
-                cityLatitude: nearbyCityCenter?.latitude ?? null,
-                cityLongitude: nearbyCityCenter?.longitude ?? null,
-              })
-            }
+            onPress={() => navigation.navigate("ProfileEdit")}
           >
             <View style={styles.quickCardHeader}>
               <Text style={styles.nearbyTitle}>{tx(`${localDisplayName} 밍글러`, `${localDisplayName} Mingler`)}</Text>
