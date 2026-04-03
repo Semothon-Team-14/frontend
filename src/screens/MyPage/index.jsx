@@ -204,7 +204,7 @@ export function MyPage({ navigation }) {
     }, [loadMyPage]),
   );
 
-  function openTripEditor(tripId) {
+  function openTripRecord(tripId) {
     const safeTripId = Number(tripId || 0);
     if (safeTripId <= 0) {
       return;
@@ -212,11 +212,11 @@ export function MyPage({ navigation }) {
 
     const parentNavigation = navigation.getParent?.();
     if (parentNavigation?.navigate) {
-      parentNavigation.navigate("CreateTrip", { tripId: safeTripId });
+      parentNavigation.navigate("TripRecordDetail", { tripId: safeTripId });
       return;
     }
 
-    navigation.navigate("CreateTrip", { tripId: safeTripId });
+    navigation.navigate("TripRecordDetail", { tripId: safeTripId });
   }
 
   function openCreateTrip() {
@@ -375,7 +375,7 @@ export function MyPage({ navigation }) {
               <Pressable
                 key={trip.id}
                 style={styles.tripCard}
-                onPress={() => openTripEditor(safeTripId)}
+                onPress={() => openTripRecord(safeTripId)}
                 disabled={safeTripId <= 0}
               >
                 {cardImageUrl ? <Image source={{ uri: cardImageUrl }} style={styles.tripCardBackgroundImage} resizeMode="cover" /> : null}
@@ -385,7 +385,7 @@ export function MyPage({ navigation }) {
                     <Pressable
                       style={styles.tripArrowButton}
                       hitSlop={12}
-                      onPress={() => openTripEditor(safeTripId)}
+                      onPress={() => openTripRecord(safeTripId)}
                       disabled={safeTripId <= 0}
                     >
                       <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
