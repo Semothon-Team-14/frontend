@@ -318,7 +318,9 @@ export function MyPage({ navigation }) {
           <Text style={styles.userName}>{user?.name || "-"}</Text>
           <View style={styles.tagsRow}>
             {(user?.keywords ?? []).slice(0, 2).map((keyword) => (
-              <View key={keyword.id} style={styles.tagPill}><Text style={styles.tagText}>#{keyword.name}</Text></View>
+              <View key={keyword.id} style={styles.tagPill}>
+                <Text style={styles.tagText}>#{keyword?.label || keyword?.name || ""}</Text>
+              </View>
             ))}
           </View>
         </View>
