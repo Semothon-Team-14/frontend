@@ -6,16 +6,11 @@ import DirectionBlack from "../../icons/direction_black.svg";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
-import { fetchChatRooms, fetchMingleMinglers, fetchMingles, fetchTrips, fetchUser, fetchUsers } from "../../services";
+import { fetchMingleMinglers, fetchMingles, fetchTrips, fetchUser, fetchUsers } from "../../services";
 import { fetchAllCities } from "../../services/placeService";
 import { pickCurrentTrip } from "../../utils/trip";
 
 function parseDate(value) {
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function parseDateTime(value) {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -29,6 +24,15 @@ function diffDaysInclusive(startDate, endDate) {
 
   const msPerDay = 1000 * 60 * 60 * 24;
   return Math.max(1, Math.floor((end.getTime() - start.getTime()) / msPerDay) + 1);
+}
+
+function overlapsDateTimeRange(startDateTime, endDateTime, tripStartAt, tripEndAt) {
+  const start = parseDate(startDateTime);
+  const end = parseDate(endDateTime) || start;
+  if (!start || !end || !tripStartAt || !tripEndAt) {
+    return false;
+  }
+  return start <= tripEndAt && end >= tripStartAt;
 }
 
 function formatDateByLocale(value, isKorean) {
@@ -64,9 +68,8 @@ export function MyPage({ navigation }) {
   const { tx, isKorean } = useLocale();
   const [user, setUser] = useState(null);
   const [trips, setTrips] = useState([]);
-  const [chatRooms, setChatRooms] = useState([]);
   const [usersById, setUsersById] = useState({});
-  const [mingleCompanionUserIdsByCity, setMingleCompanionUserIdsByCity] = useState({});
+  const [mingleCompanionUserIdsByTrip, setMingleCompanionUserIdsByTrip] = useState({});
   const [citiesById, setCitiesById] = useState({});
   const [currentCity, setCurrentCity] = useState(null);
 
@@ -107,23 +110,9 @@ export function MyPage({ navigation }) {
       .slice(0, 3);
   }, [trips]);
 
-  const directChatRoomsByRecent = useMemo(() => {
-    return [...chatRooms]
-      .filter((room) => Boolean(room?.directChat))
-      .sort((a, b) => String(b?.updatedDateTime || "").localeCompare(String(a?.updatedDateTime || "")));
-  }, [chatRooms]);
-
   const totalUniqueMinglerCount = useMemo(() => {
     const uniqueIds = new Set();
-    directChatRoomsByRecent.forEach((room) => {
-      (room?.participantUserIds ?? []).forEach((participantId) => {
-        const safeUserId = Number(participantId || 0);
-        if (safeUserId > 0 && safeUserId !== Number(userId)) {
-          uniqueIds.add(safeUserId);
-        }
-      });
-    });
-    Object.values(mingleCompanionUserIdsByCity).forEach((ids) => {
+    Object.values(mingleCompanionUserIdsByTrip).forEach((ids) => {
       (ids ?? []).forEach((id) => {
         const safeUserId = Number(id || 0);
         if (safeUserId > 0 && safeUserId !== Number(userId)) {
@@ -132,15 +121,14 @@ export function MyPage({ navigation }) {
       });
     });
     return uniqueIds.size;
-  }, [directChatRoomsByRecent, mingleCompanionUserIdsByCity, userId]);
+  }, [mingleCompanionUserIdsByTrip, userId]);
 
   const loadMyPage = useCallback(async () => {
     try {
-      const [userResponse, tripsResponse, allCities, chatRoomsResponse, usersResponse] = await Promise.all([
+      const [userResponse, tripsResponse, allCities, usersResponse] = await Promise.all([
         fetchUser(userId),
         fetchTrips(),
         fetchAllCities(),
-        fetchChatRooms(),
         fetchUsers(),
       ]);
 
@@ -150,52 +138,82 @@ export function MyPage({ navigation }) {
         acc[city.id] = city;
         return acc;
       }, {});
-      const allChatRooms = (chatRoomsResponse?.chatRooms ?? []).filter((room) =>
-        (room?.participantUserIds ?? []).some((participantId) => Number(participantId) === Number(userId)));
       const allUsers = usersResponse?.users ?? [];
       const userMap = allUsers.reduce((acc, item) => {
         acc[item.id] = item;
         return acc;
       }, {});
-      const targetCityIds = Array.from(
-        new Set(
-          loadedTrips
-            .map((trip) => Number(trip?.cityId || 0))
-            .filter((cityId) => Number.isFinite(cityId) && cityId > 0),
-        ),
-      );
-      const companionMap = {};
+      const companionMapByTripId = {};
+      const mingleRowsByCityId = {};
       await Promise.all(
-        targetCityIds.map(async (cityId) => {
-          try {
-            const minglesResponse = await fetchMingles({ cityId });
-            const mingles = minglesResponse?.mingles ?? [];
-            const companionIds = new Set();
-            await Promise.all(
-              mingles.map(async (mingle) => {
-                try {
-                  const minglersResponse = await fetchMingleMinglers(mingle?.id);
-                  const minglers = minglersResponse?.minglers ?? [];
-                  const includesMe = minglers.some((mingler) => Number(mingler?.userId) === Number(userId));
-                  if (!includesMe) {
-                    return;
-                  }
-
-                  minglers.forEach((mingler) => {
-                    const nextUserId = Number(mingler?.userId || 0);
-                    if (nextUserId > 0 && nextUserId !== Number(userId)) {
-                      companionIds.add(nextUserId);
-                    }
-                  });
-                } catch {
-                  // Keep partial companion results even if one mingle call fails.
-                }
-              }),
-            );
-            companionMap[cityId] = Array.from(companionIds);
-          } catch {
-            companionMap[cityId] = [];
+        loadedTrips.map(async (trip) => {
+          const tripId = Number(trip?.id || 0);
+          const cityId = Number(trip?.cityId || 0);
+          if (tripId <= 0 || cityId <= 0) {
+            companionMapByTripId[tripId] = [];
+            return;
           }
+
+          if (!mingleRowsByCityId[cityId]) {
+            try {
+              const minglesResponse = await fetchMingles({ cityId });
+              const mingles = minglesResponse?.mingles ?? [];
+              const rows = await Promise.all(
+                mingles.map(async (mingle) => {
+                  try {
+                    const minglersResponse = await fetchMingleMinglers(mingle?.id);
+                    return { mingle, minglers: minglersResponse?.minglers ?? [] };
+                  } catch {
+                    return { mingle, minglers: [] };
+                  }
+                }),
+              );
+              mingleRowsByCityId[cityId] = rows;
+            } catch {
+              mingleRowsByCityId[cityId] = [];
+            }
+          }
+
+          const tripStartAt = parseDate(`${trip?.startDate}T00:00:00`);
+          const tripEndAt = parseDate(`${trip?.endDate}T23:59:59`);
+          const companionIds = new Set();
+
+          (mingleRowsByCityId[cityId] ?? []).forEach((row) => {
+            const minglers = row?.minglers ?? [];
+            const me = minglers.find((mingler) => Number(mingler?.userId) === Number(userId));
+            if (!me) {
+              return;
+            }
+
+            const membershipOverlaps = overlapsDateTimeRange(
+              me?.createdDateTime,
+              me?.updatedDateTime,
+              tripStartAt,
+              tripEndAt,
+            );
+            const meetDateOverlaps = overlapsDateTimeRange(
+              row?.mingle?.meetDateTime,
+              row?.mingle?.meetDateTime,
+              tripStartAt,
+              tripEndAt,
+            );
+            const shouldInclude =
+              (tripStartAt && tripEndAt)
+                ? membershipOverlaps || meetDateOverlaps
+                : true;
+            if (!shouldInclude) {
+              return;
+            }
+
+            minglers.forEach((mingler) => {
+              const nextUserId = Number(mingler?.userId || 0);
+              if (nextUserId > 0 && nextUserId !== Number(userId)) {
+                companionIds.add(nextUserId);
+              }
+            });
+          });
+
+          companionMapByTripId[tripId] = Array.from(companionIds);
         }),
       );
       const currentTrip = pickCurrentTrip(loadedTrips);
@@ -203,17 +221,15 @@ export function MyPage({ navigation }) {
 
       setUser(loadedUser);
       setTrips(loadedTrips);
-      setChatRooms(allChatRooms);
       setUsersById(userMap);
-      setMingleCompanionUserIdsByCity(companionMap);
+      setMingleCompanionUserIdsByTrip(companionMapByTripId);
       setCitiesById(cityMap);
       setCurrentCity(city);
     } catch {
       setUser(null);
       setTrips([]);
-      setChatRooms([]);
       setUsersById({});
-      setMingleCompanionUserIdsByCity({});
+      setMingleCompanionUserIdsByTrip({});
       setCitiesById({});
       setCurrentCity(null);
     }
@@ -251,15 +267,6 @@ export function MyPage({ navigation }) {
   }
 
   function getRecentTripChatAvatars(trip) {
-    const tripStart = parseDate(trip?.startDate);
-    const tripEnd = parseDate(trip?.endDate);
-    const tripStartAt = tripStart
-      ? new Date(tripStart.getFullYear(), tripStart.getMonth(), tripStart.getDate(), 0, 0, 0, 0)
-      : null;
-    const tripEndAt = tripEnd
-      ? new Date(tripEnd.getFullYear(), tripEnd.getMonth(), tripEnd.getDate(), 23, 59, 59, 999)
-      : null;
-
     const seenOtherUserIds = new Set();
     const orderedUserIds = [];
 
@@ -273,43 +280,12 @@ export function MyPage({ navigation }) {
       orderedUserIds.push(safeUserId);
     }
 
-    for (const room of directChatRoomsByRecent) {
-      const createdAt = parseDateTime(room?.createdDateTime);
-      const updatedAt = parseDateTime(room?.updatedDateTime) || createdAt;
-      if (!createdAt || !updatedAt) {
-        continue;
-      }
-
-      if (tripStartAt && tripEndAt) {
-        const overlapsTripWindow = createdAt <= tripEndAt && updatedAt >= tripStartAt;
-        if (!overlapsTripWindow) {
-          continue;
-        }
-      }
-
-      const otherUserId = (room?.participantUserIds ?? []).find((participantId) => Number(participantId) !== Number(userId));
-      pushUserId(otherUserId);
-      if (orderedUserIds.length >= 3) {
-        break;
-      }
-    }
-
-    const cityCompanionUserIds = mingleCompanionUserIdsByCity[Number(trip?.cityId || 0)] ?? [];
-    cityCompanionUserIds.forEach((id) => {
+    const tripCompanionUserIds = mingleCompanionUserIdsByTrip[Number(trip?.id || 0)] ?? [];
+    tripCompanionUserIds.forEach((id) => {
       if (orderedUserIds.length < 3) {
         pushUserId(id);
       }
     });
-
-    if (orderedUserIds.length === 0) {
-      for (const room of directChatRoomsByRecent) {
-        const otherUserId = (room?.participantUserIds ?? []).find((participantId) => Number(participantId) !== Number(userId));
-        pushUserId(otherUserId);
-        if (orderedUserIds.length >= 3) {
-          break;
-        }
-      }
-    }
 
     const avatars = [];
     for (const otherUserId of orderedUserIds) {
