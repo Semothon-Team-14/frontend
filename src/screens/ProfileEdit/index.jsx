@@ -236,6 +236,7 @@ export function ProfileEdit({ navigation }) {
   }
 
   const localMode = selectedHomeMode === HOME_MODE_LOCAL;
+  const travelerMode = selectedHomeMode === HOME_MODE_TRAVELER;
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
@@ -248,17 +249,29 @@ export function ProfileEdit({ navigation }) {
       </View>
 
       <View style={styles.modeBar}>
-        <Text style={styles.modeBarTitle}>{localMode ? tx("로컬로 전환", "Local Mode") : tx("여행자로 전환", "Traveler Mode")}</Text>
-        <Switch
-          value={localMode}
-          onValueChange={(nextValue) => {
-            const nextMode = nextValue ? HOME_MODE_LOCAL : HOME_MODE_TRAVELER;
-            setSelectedHomeMode(nextMode);
-            setCurrentHomeMode(nextMode);
-          }}
-          trackColor={{ false: "#6B7380", true: "#3E65FF" }}
-          thumbColor="#FFFFFF"
-        />
+        <Text style={styles.modeBarTitle}>
+          {localMode
+            ? tx("현재 모드: 로컬", "Current Mode: Local")
+            : tx("현재 모드: 여행자", "Current Mode: Traveler")}
+        </Text>
+        <View style={styles.modeToggleRow}>
+          <Text style={[styles.modeToggleLabel, travelerMode && styles.modeToggleLabelActive]}>
+            {tx("여행자", "Traveler")}
+          </Text>
+          <Switch
+            value={localMode}
+            onValueChange={(nextValue) => {
+              const nextMode = nextValue ? HOME_MODE_LOCAL : HOME_MODE_TRAVELER;
+              setSelectedHomeMode(nextMode);
+              setCurrentHomeMode(nextMode);
+            }}
+            trackColor={{ false: "#6B7380", true: "#3E65FF" }}
+            thumbColor="#FFFFFF"
+          />
+          <Text style={[styles.modeToggleLabel, localMode && styles.modeToggleLabelActive]}>
+            {tx("로컬", "Local")}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.formCard}>
@@ -448,6 +461,20 @@ const styles = StyleSheet.create({
   modeBarTitle: {
     color: "#FFFFFF",
     fontSize: 14,
+    fontWeight: "700",
+  },
+  modeToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  modeToggleLabel: {
+    color: "#D6DFEF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  modeToggleLabelActive: {
+    color: "#FFFFFF",
     fontWeight: "700",
   },
   formCard: {
