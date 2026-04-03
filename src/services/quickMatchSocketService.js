@@ -37,7 +37,7 @@ export function createQuickMatchSocketClient({ onConnect, onError } = {}) {
     },
     webSocketFactory: () => {
       debugLog("OPEN_WEBSOCKET", websocketUrl);
-      return new WebSocket(websocketUrl);
+      return new WebSocket(websocketUrl, ["v12.stomp", "v11.stomp", "v10.stomp"]);
     },
   });
 
