@@ -53,7 +53,7 @@ function TabsNavigator() {
         name="MyPage"
         component={MyPage}
         options={{
-          title: "나의 여행",
+          title: "나의 기록",
           tabBarIcon: ({ color }) => <MyPageIcon color={color} />,
         }}
       />
