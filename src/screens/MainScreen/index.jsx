@@ -38,6 +38,7 @@ import {
   fetchMingleMinglers,
   fetchLocals,
   fetchTrips,
+  fetchUser,
 } from "../../services";
 import { fetchAllCities } from "../../services/placeService";
 import { pickCurrentTrip } from "../../utils/trip";
@@ -172,6 +173,8 @@ export function MainScreen() {
   const [localMingleRows, setLocalMingleRows] = useState([]);
   const [localMingleLoading, setLocalMingleLoading] = useState(false);
   const [localMingleError, setLocalMingleError] = useState(null);
+  const [localUserProfile, setLocalUserProfile] = useState(null);
+  const [localAvailableTimeText, setLocalAvailableTimeText] = useState(null);
   const placeRequestSequenceRef = useRef(0);
 
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
@@ -202,6 +205,25 @@ export function MainScreen() {
     }
     return selectedCity?.cityNameEnglish || selectedCity?.name || selectedCity?.cityNameKorean || "";
   }, [isKorean, selectedCity]);
+  const localCardKeywords = useMemo(() => {
+    return [...(localUserProfile?.keywords ?? [])]
+      .sort((a, b) => Number(a?.priority ?? 999) - Number(b?.priority ?? 999))
+      .slice(0, 2);
+  }, [localUserProfile]);
+  const localDisplayName = useMemo(() => {
+    const name = String(localUserProfile?.name || localUserProfile?.username || "").trim();
+    if (name.length > 0) {
+      return name;
+    }
+    return tx("로컬 밍글러", "Local Mingler");
+  }, [localUserProfile, tx]);
+  const localAvailabilityLabel = useMemo(() => {
+    const value = String(localAvailableTimeText || "").trim();
+    if (value.length > 0) {
+      return value;
+    }
+    return tx("시간을 설정해보세요", "Set your available time");
+  }, [localAvailableTimeText, tx]);
 
   async function enrichWithImages(items, type) {
     return Promise.all(
@@ -282,12 +304,14 @@ export function MainScreen() {
         savedRestaurantsResponse,
         savedCafesResponse,
         localsResponse,
+        userResponse,
       ] = await Promise.all([
         fetchAllCities(),
         fetchTrips(),
         fetchSavedRestaurants(),
         fetchSavedCafes(),
         fetchLocals(),
+        fetchUser(userId),
       ]);
       const userTrips = (tripsResponse?.trips ?? []).filter(
         (trip) => Number(trip?.userId) === Number(userId),
@@ -337,6 +361,8 @@ export function MainScreen() {
       setLocalMingleLoading(false);
       setSavedRestaurantByPlaceId(savedRestaurantMap);
       setSavedCafeByPlaceId(savedCafeMap);
+      setLocalUserProfile(userResponse?.user ?? null);
+      setLocalAvailableTimeText(String(latestLocal?.availableTimeText || "").trim() || null);
       setHomeDataVersion((prev) => prev + 1);
     } catch {
       setCurrentTrip(null);
@@ -351,6 +377,8 @@ export function MainScreen() {
       setLocalMingleLoading(false);
       setSavedRestaurantByPlaceId({});
       setSavedCafeByPlaceId({});
+      setLocalUserProfile(null);
+      setLocalAvailableTimeText(null);
       setHomeDataVersion((prev) => prev + 1);
     }
   }
@@ -578,59 +606,124 @@ export function MainScreen() {
           </Text>
         </View>
 
-        <View style={styles.quickRow}>
-          <TouchableWithoutFeedback
+        {homeMode === HOME_MODE_TRAVELER ? (
+          <View style={styles.quickRow}>
+            <TouchableWithoutFeedback
+              onPress={() =>
+                navigation.navigate("Nearby", {
+                  cityId: selectedCity?.id,
+                  cityName:
+                    selectedCityDisplayName ||
+                    "",
+                  cityLatitude: nearbyCityCenter?.latitude ?? null,
+                  cityLongitude: nearbyCityCenter?.longitude ?? null,
+                })
+              }
+            >
+              <View style={styles.nearbyCard}>
+                <ImageBackground
+                  source={require("../../images/nearbyCardImage.jpg")}
+                  style={StyleSheet.absoluteFill}
+                  imageStyle={{ borderRadius: 22 }}
+                />
+                <LinearGradient
+                  colors={["rgba(1, 105, 254, 0.5)", "rgb(1, 105, 254)"]}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.quickCardHeader}>
+                <Text style={styles.nearbyTitle}>{tx("근처 밍글러", "Nearby Minglers")}</Text>
+                  <Direction width={18} height={18} />
+                </View>
+                <Text style={styles.nearbyBody}>
+                  {currentTrip?.title
+                    ? tx(`${currentTrip.title} 같이 하실 분`, `${currentTrip.title} companions`)
+                    : tx("여행자를 만나보세요", "Meet travelers")}
+                </Text>
+              </View>
+            </TouchableWithoutFeedback>
+
+            <View style={styles.rightQuickStack}>
+              <TouchableWithoutFeedback
+                onPress={() =>
+                  quickMatchEnabled &&
+                  navigation.navigate("QuickMatch", {
+                    cityId: selectedCity?.id,
+                  })
+                }
+              >
+                <View
+                  style={[
+                    styles.quickButtonCard,
+                    !quickMatchEnabled && styles.quickButtonCardDisabled,
+                  ]}
+                >
+                  <Quick />
+                  <Text
+                    style={[
+                      styles.quickButtonText,
+                      !quickMatchEnabled && styles.quickButtonTextDisabled,
+                    ]}
+                  >
+                    {quickMatchEnabled
+                      ? tx("빠른 매칭", "Quick Match")
+                      : tx("지금은 사용할 수 없어요.", "Not available now.")}
+                  </Text>
+                </View>
+              </TouchableWithoutFeedback>
+              <TouchableWithoutFeedback
+                onPress={() => navigation.navigate("Chats")}
+              >
+                <View style={styles.quickButtonCard}>
+                  <View style={styles.communityIconWrap}>
+                    <Speech />
+                    <View style={styles.communityBadge}>
+                      <Text style={styles.communityBadgeText}>2</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.quickButtonText}>{tx("로컬 커뮤니티", "Local Community")}</Text>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </View>
+        ) : null}
+
+        {homeMode === HOME_MODE_LOCAL ? (
+          <Pressable
+            style={styles.localProfileCard}
             onPress={() =>
               navigation.navigate("Nearby", {
                 cityId: selectedCity?.id,
-                cityName:
-                  selectedCityDisplayName ||
-                  "",
+                cityName: selectedCityDisplayName || "",
                 cityLatitude: nearbyCityCenter?.latitude ?? null,
                 cityLongitude: nearbyCityCenter?.longitude ?? null,
               })
             }
           >
-            <View style={styles.nearbyCard}>
-              <ImageBackground
-                source={require("../../images/nearbyCardImage.jpg")}
-                style={StyleSheet.absoluteFill}
-                imageStyle={{ borderRadius: 22 }}
-              />
-              <LinearGradient
-                colors={["rgba(1, 105, 254, 0.55)", "rgb(1, 105, 254)"]}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.quickCardHeader}>
-                <Text style={styles.nearbyTitle}>
-                  {homeMode === HOME_MODE_LOCAL ? tx("야호호 밍글러", "Yahoho Mingler") : tx("근처 밍글러", "Nearby Minglers")}
-                </Text>
-                <Direction width={18} height={18} />
-              </View>
-              <Text style={styles.nearbyMetaText}>
-                {currentTrip?.startDate
-                  ? new Intl.DateTimeFormat(isKorean ? "ko-KR" : "en-US", {
-                      weekday: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }).format(new Date(currentTrip.startDate))
-                  : tx("토 · 09:30", "Sat · 09:30")}
-              </Text>
-              <View style={styles.localHeroChipRow}>
-                <View style={styles.localHeroChip}>
-                  <Text style={styles.localHeroChipText}>#짬뽕박사</Text>
+            <View style={styles.quickCardHeader}>
+              <Text style={styles.nearbyTitle}>{tx(`${localDisplayName} 밍글러`, `${localDisplayName} Mingler`)}</Text>
+              <Direction width={18} height={18} />
+            </View>
+            <Text style={styles.nearbyMetaText}>{localAvailabilityLabel}</Text>
+            <View style={styles.localHeroChipRow}>
+              {localCardKeywords.map((keyword) => (
+                <View key={keyword?.id} style={styles.localHeroChip}>
+                  <Text style={styles.localHeroChipText}>
+                    #
+                    {isKorean
+                      ? (keyword?.label || "")
+                      : (keyword?.labelEnglish || keyword?.label || "")}
+                  </Text>
                 </View>
-                <View style={styles.localHeroChip}>
-                  <Text style={styles.localHeroChipText}>#덕후</Text>
-                </View>
-                <View style={styles.localHeroPlusChip}>
-                  <Text style={styles.localHeroPlusChipText}>+</Text>
-                </View>
+              ))}
+              <View style={styles.localHeroPlusChip}>
+                <Text style={styles.localHeroPlusChipText}>+</Text>
               </View>
             </View>
-          </TouchableWithoutFeedback>
+          </Pressable>
+        ) : null}
 
-          <View style={styles.rightQuickStack}>
+        {homeMode === HOME_MODE_LOCAL ? (
+          <View style={styles.localActionRow}>
             <TouchableWithoutFeedback
               onPress={() =>
                 quickMatchEnabled &&
@@ -641,7 +734,7 @@ export function MainScreen() {
             >
               <View
                 style={[
-                  styles.quickButtonCard,
+                  styles.localActionButtonCard,
                   !quickMatchEnabled && styles.quickButtonCardDisabled,
                 ]}
               >
@@ -661,10 +754,10 @@ export function MainScreen() {
             <TouchableWithoutFeedback
               onPress={() => navigation.navigate("Chats")}
             >
-              <View style={styles.quickButtonCard}>
+              <View style={styles.localActionButtonCard}>
                 <View style={styles.communityIconWrap}>
                   <Speech />
-                  <View style={styles.communityBadge}>
+                  <View style={styles.communityBadgeLocal}>
                     <Text style={styles.communityBadgeText}>2</Text>
                   </View>
                 </View>
@@ -672,7 +765,7 @@ export function MainScreen() {
               </View>
             </TouchableWithoutFeedback>
           </View>
-        </View>
+        ) : null}
 
         {homeMode === HOME_MODE_TRAVELER ? (
           <View style={styles.sectionHeader}>
@@ -929,6 +1022,27 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
   },
+  localProfileCard: {
+    borderRadius: 22,
+    backgroundColor: "#1C73F0",
+    minHeight: 154,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    justifyContent: "space-between",
+  },
+  localActionRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  localActionButtonCard: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    height: 66,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    gap: 6,
+  },
   nearbyCard: {
     width: 170,
     height: 170,
@@ -1025,6 +1139,17 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  communityBadgeLocal: {
+    position: "absolute",
+    right: -12,
+    top: -10,
+    backgroundColor: "#1C73F0",
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
   },
