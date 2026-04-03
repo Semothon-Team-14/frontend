@@ -29,7 +29,7 @@ export function LoginScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>로그인</Text>
-      <Text style={styles.subtitle}>Figma 인증 화면 추가 전 임시 인증 UI입니다.</Text>
+      {/* <Text style={styles.subtitle}>Figma 인증 화면 추가 전 임시 인증 UI입니다.</Text> */}
 
       <View style={styles.form}>
         <Text style={styles.label}>Username</Text>
@@ -52,11 +52,19 @@ export function LoginScreen({ navigation }) {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Pressable style={styles.primaryBtn} onPress={handleLogin} disabled={loading}>
-          <Text style={styles.primaryBtnText}>{loading ? "로그인 중..." : "로그인"}</Text>
+        <Pressable
+          style={styles.primaryBtn}
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          <Text style={styles.primaryBtnText}>
+            {loading ? "로그인 중..." : "로그인"}
+          </Text>
         </Pressable>
 
-        <Pressable style={styles.secondaryBtn} onPress={() => navigation.navigate("SignUp")}
+        <Pressable
+          style={styles.secondaryBtn}
+          onPress={() => navigation.navigate("SignUp")}
         >
           <Text style={styles.secondaryBtnText}>회원가입으로 이동</Text>
         </Pressable>
