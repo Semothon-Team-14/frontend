@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import MapView, { Marker } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,9 +16,18 @@ import { Calendar } from "react-native-calendars";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
-import { createMingle, fetchMingleMinglers, fetchMingles, joinMingle, leaveMingle } from "../../services/mingleService";
-import { fetchGooglePlaceDetails, searchGooglePlaces } from "../../services/googlePlacesService";
- 
+import {
+  createMingle,
+  fetchMingleMinglers,
+  fetchMingles,
+  joinMingle,
+  leaveMingle,
+} from "../../services/mingleService";
+import {
+  fetchGooglePlaceDetails,
+  searchGooglePlaces,
+} from "../../services/googlePlacesService";
+
 const GROUP_SIZE_FILTER_ALL = "ALL";
 const GROUP_SIZE_FILTER_2 = "2";
 const GROUP_SIZE_FILTER_3 = "3";
@@ -130,7 +148,9 @@ export function Nearby({ route }) {
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [dateTimeModalVisible, setDateTimeModalVisible] = useState(false);
-  const [dateTimeDraft, setDateTimeDraft] = useState(() => buildDefaultMeetDateTime());
+  const [dateTimeDraft, setDateTimeDraft] = useState(() =>
+    buildDefaultMeetDateTime(),
+  );
   const [createForm, setCreateForm] = useState({
     title: "",
     description: "",
@@ -172,9 +192,10 @@ export function Nearby({ route }) {
 
     return mingleRows.filter((row) => {
       const targetCount = Number(row?.mingle?.targetParticipantCount);
-      const count = Number.isFinite(targetCount) && targetCount > 0
-        ? targetCount
-        : (row?.minglers?.length ?? 0);
+      const count =
+        Number.isFinite(targetCount) && targetCount > 0
+          ? targetCount
+          : (row?.minglers?.length ?? 0);
       if (groupSizeFilter === GROUP_SIZE_FILTER_2) {
         return count === 2;
       }
@@ -205,16 +226,23 @@ export function Nearby({ route }) {
   }, [mingleRows]);
 
   const mapRegion = useMemo(() => {
-    const drawerCoverage = sheetExpanded ? DRAWER_COVERAGE_EXPANDED : DRAWER_COVERAGE_COLLAPSED;
+    const drawerCoverage = sheetExpanded
+      ? DRAWER_COVERAGE_EXPANDED
+      : DRAWER_COVERAGE_COLLAPSED;
     const withDrawerCompensation = (latitude, latitudeDelta) => ({
       latitude: latitude - latitudeDelta * (drawerCoverage / 2),
       latitudeDelta,
     });
 
-    const selectedMarker = mingleMarkers.find((marker) => Number(marker.id) === Number(selectedMingleId));
+    const selectedMarker = mingleMarkers.find(
+      (marker) => Number(marker.id) === Number(selectedMingleId),
+    );
     if (selectedMarker) {
       const latitudeDelta = 0.045;
-      const compensated = withDrawerCompensation(selectedMarker.coordinate.latitude, latitudeDelta);
+      const compensated = withDrawerCompensation(
+        selectedMarker.coordinate.latitude,
+        latitudeDelta,
+      );
       return {
         latitude: compensated.latitude,
         longitude: selectedMarker.coordinate.longitude,
@@ -225,7 +253,10 @@ export function Nearby({ route }) {
 
     if (cityCenter) {
       const latitudeDelta = 0.18;
-      const compensated = withDrawerCompensation(cityCenter.latitude, latitudeDelta);
+      const compensated = withDrawerCompensation(
+        cityCenter.latitude,
+        latitudeDelta,
+      );
       return {
         latitude: compensated.latitude,
         longitude: cityCenter.longitude,
@@ -246,7 +277,10 @@ export function Nearby({ route }) {
     }
 
     const latitudeDelta = 0.08;
-    const compensated = withDrawerCompensation(mingleMarkers[0].coordinate.latitude, latitudeDelta);
+    const compensated = withDrawerCompensation(
+      mingleMarkers[0].coordinate.latitude,
+      latitudeDelta,
+    );
     return {
       latitude: compensated.latitude,
       longitude: mingleMarkers[0].coordinate.longitude,
@@ -260,7 +294,9 @@ export function Nearby({ route }) {
     setError(null);
 
     try {
-      const mingleResponse = await fetchMingles(Number.isFinite(cityId) && cityId > 0 ? { cityId } : undefined);
+      const mingleResponse = await fetchMingles(
+        Number.isFinite(cityId) && cityId > 0 ? { cityId } : undefined,
+      );
 
       const mingles = mingleResponse?.mingles ?? [];
 
@@ -282,7 +318,11 @@ export function Nearby({ route }) {
 
       const nextJoinedSet = new Set(
         rows
-          .filter((row) => (row.minglers ?? []).some((mingler) => Number(mingler?.userId) === Number(currentUserId)))
+          .filter((row) =>
+            (row.minglers ?? []).some(
+              (mingler) => Number(mingler?.userId) === Number(currentUserId),
+            ),
+          )
           .map((row) => row?.mingle?.id)
           .filter(Boolean),
       );
@@ -295,7 +335,12 @@ export function Nearby({ route }) {
     } catch {
       setMingleRows([]);
       setJoinedMingleIdSet(new Set());
-      setError(tx("근처 밍글러 정보를 불러오지 못했습니다.", "Failed to load nearby minglers."));
+      setError(
+        tx(
+          "근처 밍글러 정보를 불러오지 못했습니다.",
+          "Failed to load nearby minglers.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -321,7 +366,12 @@ export function Nearby({ route }) {
 
       await loadNearby();
     } catch {
-      setError(tx("밍글 참여 상태를 변경하지 못했습니다.", "Failed to update mingle participation."));
+      setError(
+        tx(
+          "밍글 참여 상태를 변경하지 못했습니다.",
+          "Failed to update mingle participation.",
+        ),
+      );
     }
   }
 
@@ -385,7 +435,10 @@ export function Nearby({ route }) {
         setPlaceSuggestions([]);
         setPlaceSearchError(
           e?.message === "Google Places API key is not configured."
-            ? tx("Google Places API key가 설정되지 않았습니다.", "Google Places API key is not configured.")
+            ? tx(
+                "Google Places API key가 설정되지 않았습니다.",
+                "Google Places API key is not configured.",
+              )
             : tx("장소 검색에 실패했습니다.", "Failed to search places."),
         );
       } finally {
@@ -410,7 +463,8 @@ export function Nearby({ route }) {
         placeId: item.placeId,
         sessionToken: placeSessionTokenRef.current,
       });
-      const displayName = details?.name || item.primaryText || item.description || "";
+      const displayName =
+        details?.name || item.primaryText || item.description || "";
       setCreateForm((prev) => ({
         ...prev,
         placeName: displayName,
@@ -423,7 +477,12 @@ export function Nearby({ route }) {
       setPlaceSearchError(null);
       placeSessionTokenRef.current = `mingle-${Date.now()}`;
     } catch {
-      setPlaceSearchError(tx("선택한 장소 정보를 불러오지 못했습니다.", "Failed to load selected place."));
+      setPlaceSearchError(
+        tx(
+          "선택한 장소 정보를 불러오지 못했습니다.",
+          "Failed to load selected place.",
+        ),
+      );
     } finally {
       setPlaceDetailLoading(false);
     }
@@ -431,7 +490,8 @@ export function Nearby({ route }) {
 
   function openDateTimeModal() {
     const baseDate =
-      createForm.meetDateTime instanceof Date && !Number.isNaN(createForm.meetDateTime.getTime())
+      createForm.meetDateTime instanceof Date &&
+      !Number.isNaN(createForm.meetDateTime.getTime())
         ? createForm.meetDateTime
         : buildDefaultMeetDateTime();
     setDateTimeDraft(new Date(baseDate));
@@ -442,7 +502,11 @@ export function Nearby({ route }) {
     const [year, month, date] = String(day?.dateString || "")
       .split("-")
       .map((value) => Number(value));
-    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(date)) {
+    if (
+      !Number.isFinite(year) ||
+      !Number.isFinite(month) ||
+      !Number.isFinite(date)
+    ) {
       return;
     }
 
@@ -499,9 +563,15 @@ export function Nearby({ route }) {
     const placeName = String(createForm.placeName || "").trim();
     const hasTypedPlaceButNotSelected =
       String(placeQuery || "").trim().length > 0 &&
-      (!Number.isFinite(createForm.latitude) || !Number.isFinite(createForm.longitude));
+      (!Number.isFinite(createForm.latitude) ||
+        !Number.isFinite(createForm.longitude));
     if (hasTypedPlaceButNotSelected) {
-      setError(tx("장소는 검색 결과에서 선택해주세요.", "Please select a place from suggestions."));
+      setError(
+        tx(
+          "장소는 검색 결과에서 선택해주세요.",
+          "Please select a place from suggestions.",
+        ),
+      );
       return;
     }
 
@@ -516,7 +586,8 @@ export function Nearby({ route }) {
         meetDateTime: toLocalDateTimeString(createForm.meetDateTime),
         latitude: placeName ? createForm.latitude : null,
         longitude: placeName ? createForm.longitude : null,
-        targetParticipantCount: Number(createForm.targetParticipantCount) || null,
+        targetParticipantCount:
+          Number(createForm.targetParticipantCount) || null,
       });
       setCreateModalVisible(false);
       resetCreateForm();
@@ -555,12 +626,25 @@ export function Nearby({ route }) {
 
       <View pointerEvents="box-none" style={styles.overlayLayer}>
         <View style={styles.mapTopBar}>
-          <Pressable style={styles.mapBackButton} onPress={() => navigation.goBack()}>
+          <Pressable
+            style={styles.mapBackButton}
+            onPress={() => navigation.goBack()}
+          >
             <Ionicons name="chevron-back" size={22} color="#1F2937" />
           </Pressable>
         </View>
-        <View style={[styles.listSheet, sheetExpanded ? styles.listSheetExpanded : styles.listSheetCollapsed]}>
-          <Pressable style={styles.sheetHandleButton} onPress={() => setSheetExpanded((prev) => !prev)}>
+        <View
+          style={[
+            styles.listSheet,
+            sheetExpanded
+              ? styles.listSheetExpanded
+              : styles.listSheetCollapsed,
+          ]}
+        >
+          <Pressable
+            style={styles.sheetHandleButton}
+            onPress={() => setSheetExpanded((prev) => !prev)}
+          >
             <View style={styles.sheetHandle} />
             <Ionicons
               name={sheetExpanded ? "chevron-down" : "chevron-up"}
@@ -581,105 +665,202 @@ export function Nearby({ route }) {
                   return (
                     <Pressable
                       key={filter}
-                      style={[styles.groupFilterChip, active && styles.groupFilterChipActive]}
+                      style={[
+                        styles.groupFilterChip,
+                        active && styles.groupFilterChipActive,
+                      ]}
                       onPress={() => setGroupSizeFilter(filter)}
                     >
-                      <Text style={[styles.groupFilterText, active && styles.groupFilterTextActive]}>
-                        {filter === GROUP_SIZE_FILTER_5PLUS ? tx("4인 이상", "4+ people") : `${filter}${tx("인", " people")}`}
+                      <Text
+                        style={[
+                          styles.groupFilterText,
+                          active && styles.groupFilterTextActive,
+                        ]}
+                      >
+                        {filter === GROUP_SIZE_FILTER_5PLUS
+                          ? tx("4인 이상", "4+ people")
+                          : `${filter}${tx("인", " people")}`}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
             </View>
-            <Pressable style={styles.createMingleButton} onPress={() => setCreateModalVisible(true)}>
+            <Pressable
+              style={styles.createMingleButton}
+              onPress={() => setCreateModalVisible(true)}
+            >
               <Ionicons name="create-outline" size={16} color="#7B8AA6" />
             </Pressable>
           </View>
           <View style={styles.sheetSummaryRow}>
-            <Text style={styles.sheetSummaryText}>{tx(`총 ${filteredGroupRows.length}개의 밍글`, `${filteredGroupRows.length} mingles`)}</Text>
+            <Text style={styles.sheetSummaryText}>
+              {tx(
+                `총 ${filteredGroupRows.length}개의 밍글`,
+                `${filteredGroupRows.length} mingles`,
+              )}
+            </Text>
             <View style={styles.sheetSortWrap}>
               <Text style={styles.sheetSortText}>{tx("최신순", "Latest")}</Text>
               <Ionicons name="chevron-down" size={14} color="#8A97AC" />
             </View>
           </View>
-          {loading ? <Text style={styles.infoText}>{tx("불러오는 중...", "Loading...")}</Text> : null}
+          {loading ? (
+            <Text style={styles.infoText}>
+              {tx("불러오는 중...", "Loading...")}
+            </Text>
+          ) : null}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {!loading && !error && mingleMarkers.length === 0 ? (
-            <Text style={styles.infoText}>{tx("표시 가능한 밍글 좌표가 없습니다.", "No coordinates to display.")}</Text>
+            <Text style={styles.infoText}>
+              {tx(
+                "표시 가능한 밍글 좌표가 없습니다.",
+                "No coordinates to display.",
+              )}
+            </Text>
           ) : null}
 
-          <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
-            {!loading && !error ? filteredGroupRows.map((row) => {
-              const joined = joinedMingleIdSet.has(row?.mingle?.id);
-              const selected = Number(selectedMingleId) === Number(row?.mingle?.id);
-              const placeNameText = row?.mingle?.placeName || tx("장소 미정", "Place TBD");
-              const targetCount = Number(row?.mingle?.targetParticipantCount);
-              const wantedCount = Number.isFinite(targetCount) && targetCount > 0 ? targetCount : null;
-              const currentCount = row?.minglers?.length ?? 0;
-              const totalCountLabel = wantedCount ? `${toTargetCountLabel(wantedCount)}${tx("명", "")}` : null;
+          <ScrollView
+            contentContainerStyle={styles.sheetContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {!loading && !error
+              ? filteredGroupRows.map((row) => {
+                  const joined = joinedMingleIdSet.has(row?.mingle?.id);
+                  const selected =
+                    Number(selectedMingleId) === Number(row?.mingle?.id);
+                  const placeNameText =
+                    row?.mingle?.placeName || tx("장소 미정", "Place TBD");
+                  const targetCount = Number(
+                    row?.mingle?.targetParticipantCount,
+                  );
+                  const wantedCount =
+                    Number.isFinite(targetCount) && targetCount > 0
+                      ? targetCount
+                      : null;
+                  const currentCount = row?.minglers?.length ?? 0;
+                  const totalCountLabel = wantedCount
+                    ? `${toTargetCountLabel(wantedCount)}${tx("명", "")}`
+                    : null;
 
-              return (
-                <Pressable
-                  key={row?.mingle?.id}
-                  style={[styles.card, selected && styles.cardSelected]}
-                  onPress={() => setSelectedMingleId(row?.mingle?.id)}
-                >
-                  <View style={styles.cardBody}>
-                    <Text style={styles.name}>{row?.mingle?.title || tx("제목 없음", "Untitled")}</Text>
-                    <Text style={styles.meta}>
-                      {placeNameText} · {currentCount}/{wantedCount ? totalCountLabel : `${Math.max(2, currentCount)}${tx("명", "")}`} · {row?.mingle?.meetDateTime ? toMeetDateTimeLabel(new Date(row.mingle.meetDateTime), locale) : tx("시간 미정", "Time TBD")}
-                    </Text>
-                    <Text style={styles.description} numberOfLines={1}>
-                      {row?.mingle?.description || tx("같이할 밍글러를 기다리고 있어요.", "Looking for minglers to join.")}
-                    </Text>
-                  </View>
-                  <Pressable
-                    style={[styles.actionButton, joined && styles.actionButtonActive]}
-                    onPress={() => handleToggleJoin(row?.mingle?.id)}
-                  >
-                    <Text style={[styles.actionButtonText, joined && styles.actionButtonTextActive]}>
-                      {joined ? tx("참여중", "Joined") : tx("밍글", "Mingle")}
-                    </Text>
-                  </Pressable>
-                </Pressable>
-              );
-            }) : null}
+                  return (
+                    <Pressable
+                      key={row?.mingle?.id}
+                      style={[styles.card, selected && styles.cardSelected]}
+                      onPress={() => setSelectedMingleId(row?.mingle?.id)}
+                    >
+                      <View style={styles.cardBody}>
+                        <Text style={styles.name}>
+                          {row?.mingle?.title || tx("제목 없음", "Untitled")}
+                        </Text>
+                        <Text style={styles.meta}>
+                          {placeNameText} · {currentCount}/
+                          {wantedCount
+                            ? totalCountLabel
+                            : `${Math.max(2, currentCount)}${tx("명", "")}`}{" "}
+                          ·{" "}
+                          {row?.mingle?.meetDateTime
+                            ? toMeetDateTimeLabel(
+                                new Date(row.mingle.meetDateTime),
+                                locale,
+                              )
+                            : tx("시간 미정", "Time TBD")}
+                        </Text>
+                        <Text style={styles.description} numberOfLines={1}>
+                          {row?.mingle?.description ||
+                            tx(
+                              "같이할 밍글러를 기다리고 있어요.",
+                              "Looking for minglers to join.",
+                            )}
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={[
+                          styles.actionButton,
+                          joined && styles.actionButtonActive,
+                        ]}
+                        onPress={() => handleToggleJoin(row?.mingle?.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.actionButtonText,
+                            joined && styles.actionButtonTextActive,
+                          ]}
+                        >
+                          {joined
+                            ? tx("참여중", "Joined")
+                            : tx("밍글", "Mingle")}
+                        </Text>
+                      </Pressable>
+                    </Pressable>
+                  );
+                })
+              : null}
             {!loading && !error && filteredGroupRows.length === 0 ? (
-              <Text style={styles.infoText}>{tx("표시할 항목이 없습니다.", "Nothing to show.")}</Text>
+              <Text style={styles.infoText}>
+                {tx("표시할 항목이 없습니다.", "Nothing to show.")}
+              </Text>
             ) : null}
           </ScrollView>
         </View>
       </View>
 
-      <Modal visible={drawerVisible} transparent animationType="slide" onRequestClose={() => setDrawerVisible(false)}>
+      <Modal
+        visible={drawerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDrawerVisible(false)}
+      >
         <View style={styles.drawerOverlay}>
           <View style={styles.drawerCard}>
-            <Text style={styles.drawerTitle}>{tx("원하는 밍글러를 만나보세요", "Meet your ideal minglers")}</Text>
-            <Text style={styles.drawerDescription}>{tx("로컬 밍글러 소모임 지도를 바로 확인할 수 있어요.", "You can check the local mingle map right away.")}</Text>
+            <Text style={styles.drawerTitle}>
+              {tx("원하는 밍글러를 만나보세요", "Meet your ideal minglers")}
+            </Text>
+            <Text style={styles.drawerDescription}>
+              {tx(
+                "로컬 밍글러 소모임 지도를 바로 확인할 수 있어요.",
+                "You can check the local mingle map right away.",
+              )}
+            </Text>
             <Pressable
               style={styles.drawerPrimaryButton}
               onPress={() => {
                 setDrawerVisible(false);
               }}
             >
-              <Text style={styles.drawerPrimaryButtonText}>{tx("지도 보기", "View Map")}</Text>
+              <Text style={styles.drawerPrimaryButtonText}>
+                {tx("지도 보기", "View Map")}
+              </Text>
             </Pressable>
-            <Pressable style={styles.drawerSecondaryButton} onPress={() => setDrawerVisible(false)}>
-              <Text style={styles.drawerSecondaryButtonText}>{tx("닫기", "Close")}</Text>
+            <Pressable
+              style={styles.drawerSecondaryButton}
+              onPress={() => setDrawerVisible(false)}
+            >
+              <Text style={styles.drawerSecondaryButtonText}>
+                {tx("닫기", "Close")}
+              </Text>
             </Pressable>
           </View>
         </View>
       </Modal>
 
-      <Modal visible={createModalVisible} transparent animationType="slide" onRequestClose={() => setCreateModalVisible(false)}>
+      <Modal
+        visible={createModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCreateModalVisible(false)}
+      >
         <View style={styles.drawerOverlay}>
           <View style={styles.drawerCard}>
-            <Text style={styles.drawerTitle}>{tx("새 밍글 만들기", "Create New Mingle")}</Text>
+            <Text style={styles.drawerTitle}>
+              {tx("새 밍글 만들기", "Create New Mingle")}
+            </Text>
             <TextInput
               style={styles.formInput}
               value={createForm.title}
-              onChangeText={(value) => setCreateForm((prev) => ({ ...prev, title: value }))}
+              onChangeText={(value) =>
+                setCreateForm((prev) => ({ ...prev, title: value }))
+              }
               placeholder={tx("제목 (필수)", "Title (Required)")}
             />
             <TextInput
@@ -694,12 +875,19 @@ export function Nearby({ route }) {
                   longitude: null,
                 }));
               }}
-              placeholder={tx("어디서 만날까요? (선택)", "Where to meet? (Optional)")}
+              placeholder={tx(
+                "어디서 만날까요? (선택)",
+                "Where to meet? (Optional)",
+              )}
             />
             {placeSearchLoading || placeDetailLoading ? (
-              <Text style={styles.placeHelperText}>{tx("장소를 찾는 중...", "Searching places...")}</Text>
+              <Text style={styles.placeHelperText}>
+                {tx("장소를 찾는 중...", "Searching places...")}
+              </Text>
             ) : null}
-            {placeSearchError ? <Text style={styles.placeErrorText}>{placeSearchError}</Text> : null}
+            {placeSearchError ? (
+              <Text style={styles.placeErrorText}>{placeSearchError}</Text>
+            ) : null}
             {placeSuggestions.length > 0 ? (
               <View style={styles.placeSuggestionList}>
                 {placeSuggestions.map((item) => (
@@ -708,11 +896,17 @@ export function Nearby({ route }) {
                     style={styles.placeSuggestionItem}
                     onPress={() => handleSelectPlaceSuggestion(item)}
                   >
-                    <Text style={styles.placeSuggestionPrimary} numberOfLines={1}>
+                    <Text
+                      style={styles.placeSuggestionPrimary}
+                      numberOfLines={1}
+                    >
                       {item.primaryText || item.description}
                     </Text>
                     {item.secondaryText ? (
-                      <Text style={styles.placeSuggestionSecondary} numberOfLines={1}>
+                      <Text
+                        style={styles.placeSuggestionSecondary}
+                        numberOfLines={1}
+                      >
                         {item.secondaryText}
                       </Text>
                     ) : null}
@@ -720,32 +914,56 @@ export function Nearby({ route }) {
                 ))}
               </View>
             ) : null}
-            {Number.isFinite(createForm.latitude) && Number.isFinite(createForm.longitude) ? (
+            {Number.isFinite(createForm.latitude) &&
+            Number.isFinite(createForm.longitude) ? (
               <Text style={styles.placeHelperText}>
-                {tx("선택된 위치", "Selected")}: {createForm.latitude.toFixed(5)}, {createForm.longitude.toFixed(5)}
+                {tx("선택된 위치", "Selected")}:{" "}
+                {createForm.latitude.toFixed(5)},{" "}
+                {createForm.longitude.toFixed(5)}
               </Text>
             ) : null}
             <Pressable style={styles.dateTimeField} onPress={openDateTimeModal}>
               <View style={styles.dateTimeFieldTextWrap}>
-                <Text style={styles.dateTimeFieldLabel}>{tx("언제 만날까요?", "When to meet?")}</Text>
-                <Text style={styles.dateTimeFieldValue}>{toMeetDateTimeLabel(createForm.meetDateTime, locale)}</Text>
+                <Text style={styles.dateTimeFieldLabel}>
+                  {tx("언제 만날까요?", "When to meet?")}
+                </Text>
+                <Text style={styles.dateTimeFieldValue}>
+                  {toMeetDateTimeLabel(createForm.meetDateTime, locale)}
+                </Text>
               </View>
               <Ionicons name="calendar-outline" size={18} color="#1C73F0" />
             </Pressable>
             <View style={styles.targetCountWrap}>
-              <Text style={styles.targetCountLabel}>{tx("총 인원", "Total Count")}</Text>
+              <Text style={styles.targetCountLabel}>
+                {tx("총 인원", "Total Count")}
+              </Text>
               <View style={styles.targetCountRow}>
                 {TARGET_PARTICIPANT_OPTIONS.map((count) => {
-                  const selected = Number(createForm.targetParticipantCount) === count;
+                  const selected =
+                    Number(createForm.targetParticipantCount) === count;
                   const label = toTargetCountLabel(count);
                   return (
                     <Pressable
                       key={count}
-                      style={[styles.targetCountChip, selected && styles.targetCountChipActive]}
-                      onPress={() => setCreateForm((prev) => ({ ...prev, targetParticipantCount: count }))}
+                      style={[
+                        styles.targetCountChip,
+                        selected && styles.targetCountChipActive,
+                      ]}
+                      onPress={() =>
+                        setCreateForm((prev) => ({
+                          ...prev,
+                          targetParticipantCount: count,
+                        }))
+                      }
                     >
-                      <Text style={[styles.targetCountChipText, selected && styles.targetCountChipTextActive]}>
-                        {label}{tx("명", "")}
+                      <Text
+                        style={[
+                          styles.targetCountChipText,
+                          selected && styles.targetCountChipTextActive,
+                        ]}
+                      >
+                        {label}
+                        {tx("명", "")}
                       </Text>
                     </Pressable>
                   );
@@ -755,28 +973,50 @@ export function Nearby({ route }) {
             <TextInput
               style={[styles.formInput, styles.formInputMultiline]}
               value={createForm.description}
-              onChangeText={(value) => setCreateForm((prev) => ({ ...prev, description: value }))}
+              onChangeText={(value) =>
+                setCreateForm((prev) => ({ ...prev, description: value }))
+              }
               placeholder={tx("설명 (선택)", "Description (Optional)")}
               multiline
             />
             <Pressable
-              style={[styles.drawerPrimaryButton, createSubmitting && styles.confirmDisabled]}
+              style={[
+                styles.drawerPrimaryButton,
+                createSubmitting && styles.confirmDisabled,
+              ]}
               onPress={handleCreateMingle}
               disabled={createSubmitting}
             >
-              <Text style={styles.drawerPrimaryButtonText}>{createSubmitting ? tx("생성 중...", "Creating...") : tx("밍글 생성", "Create Mingle")}</Text>
+              <Text style={styles.drawerPrimaryButtonText}>
+                {createSubmitting
+                  ? tx("생성 중...", "Creating...")
+                  : tx("밍글 생성", "Create Mingle")}
+              </Text>
             </Pressable>
-            <Pressable style={styles.drawerSecondaryButton} onPress={() => setCreateModalVisible(false)} disabled={createSubmitting}>
-              <Text style={styles.drawerSecondaryButtonText}>{tx("취소", "Cancel")}</Text>
+            <Pressable
+              style={styles.drawerSecondaryButton}
+              onPress={() => setCreateModalVisible(false)}
+              disabled={createSubmitting}
+            >
+              <Text style={styles.drawerSecondaryButtonText}>
+                {tx("취소", "Cancel")}
+              </Text>
             </Pressable>
           </View>
         </View>
       </Modal>
 
-      <Modal visible={dateTimeModalVisible} transparent animationType="fade" onRequestClose={() => setDateTimeModalVisible(false)}>
+      <Modal
+        visible={dateTimeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDateTimeModalVisible(false)}
+      >
         <View style={styles.drawerOverlay}>
           <View style={styles.dateTimeModalCard}>
-            <Text style={styles.drawerTitle}>{tx("날짜와 시간 선택", "Pick Date & Time")}</Text>
+            <Text style={styles.drawerTitle}>
+              {tx("날짜와 시간 선택", "Pick Date & Time")}
+            </Text>
             <Calendar
               current={toCalendarDateKey(dateTimeDraft)}
               markedDates={{
@@ -796,11 +1036,19 @@ export function Nearby({ route }) {
               <View style={styles.timeAdjustCard}>
                 <Text style={styles.timeAdjustLabel}>{tx("시", "Hour")}</Text>
                 <View style={styles.timeAdjustRow}>
-                  <Pressable style={styles.timeAdjustButton} onPress={() => adjustDraftHour(-1)}>
+                  <Pressable
+                    style={styles.timeAdjustButton}
+                    onPress={() => adjustDraftHour(-1)}
+                  >
                     <Ionicons name="remove" size={16} color="#334155" />
                   </Pressable>
-                  <Text style={styles.timeAdjustValue}>{pad2(dateTimeDraft.getHours())}</Text>
-                  <Pressable style={styles.timeAdjustButton} onPress={() => adjustDraftHour(1)}>
+                  <Text style={styles.timeAdjustValue}>
+                    {pad2(dateTimeDraft.getHours())}
+                  </Text>
+                  <Pressable
+                    style={styles.timeAdjustButton}
+                    onPress={() => adjustDraftHour(1)}
+                  >
                     <Ionicons name="add" size={16} color="#334155" />
                   </Pressable>
                 </View>
@@ -808,21 +1056,39 @@ export function Nearby({ route }) {
               <View style={styles.timeAdjustCard}>
                 <Text style={styles.timeAdjustLabel}>{tx("분", "Minute")}</Text>
                 <View style={styles.timeAdjustRow}>
-                  <Pressable style={styles.timeAdjustButton} onPress={() => adjustDraftMinute(-30)}>
+                  <Pressable
+                    style={styles.timeAdjustButton}
+                    onPress={() => adjustDraftMinute(-30)}
+                  >
                     <Ionicons name="remove" size={16} color="#334155" />
                   </Pressable>
-                  <Text style={styles.timeAdjustValue}>{pad2(dateTimeDraft.getMinutes())}</Text>
-                  <Pressable style={styles.timeAdjustButton} onPress={() => adjustDraftMinute(30)}>
+                  <Text style={styles.timeAdjustValue}>
+                    {pad2(dateTimeDraft.getMinutes())}
+                  </Text>
+                  <Pressable
+                    style={styles.timeAdjustButton}
+                    onPress={() => adjustDraftMinute(30)}
+                  >
                     <Ionicons name="add" size={16} color="#334155" />
                   </Pressable>
                 </View>
               </View>
             </View>
-            <Pressable style={styles.drawerPrimaryButton} onPress={confirmDateTimeSelection}>
-              <Text style={styles.drawerPrimaryButtonText}>{tx("적용", "Apply")}</Text>
+            <Pressable
+              style={styles.drawerPrimaryButton}
+              onPress={confirmDateTimeSelection}
+            >
+              <Text style={styles.drawerPrimaryButtonText}>
+                {tx("적용", "Apply")}
+              </Text>
             </Pressable>
-            <Pressable style={styles.drawerSecondaryButton} onPress={() => setDateTimeModalVisible(false)}>
-              <Text style={styles.drawerSecondaryButtonText}>{tx("취소", "Cancel")}</Text>
+            <Pressable
+              style={styles.drawerSecondaryButton}
+              onPress={() => setDateTimeModalVisible(false)}
+            >
+              <Text style={styles.drawerSecondaryButtonText}>
+                {tx("취소", "Cancel")}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -879,7 +1145,7 @@ const styles = StyleSheet.create({
   },
   groupFilterChipActive: {
     borderColor: "#1C73F0",
-    backgroundColor: "#EAF2FF",
+    backgroundColor: "#1C73F0",
   },
   groupFilterText: {
     fontSize: 12,
@@ -887,7 +1153,7 @@ const styles = StyleSheet.create({
     color: "#4D5A76",
   },
   groupFilterTextActive: {
-    color: "#1C73F0",
+    color: "#fff",
   },
   listSheet: {
     backgroundColor: "rgba(245,247,251,0.98)",
