@@ -1,28 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { CalendarDateField } from "../../../components/CalendarDateField";
 import { SearchDropdown } from "../../../components/SearchDropdown";
 import { useAuth } from "../../../auth";
-import { fetchKeywords, fetchNationalities } from "../../../services";
+import { createLocal, createTrip, fetchAllCities, fetchKeywords } from "../../../services";
 
-const KEYWORDS_PER_PAGE = 10;
+const STEP_RESIDENCE = 0;
+const STEP_KEYWORDS = 1;
+const STEP_TRIP = 2;
+const STEP_PROFILE = 3;
+const STEP_COUNT = 4;
 
 function normalizeLiteral(value) {
   return String(value || "").trim().toLowerCase();
 }
 
-function getNationalityDisplayName(nationality) {
-  const english = String(nationality?.countryNameEnglish || "").trim();
-  const korean = String(nationality?.countryNameKorean || "").trim();
-
-  if (english && korean) {
-    return `${english} (${korean})`;
+function getCityDisplayName(city) {
+  const ko = String(city?.cityNameKorean || "").trim();
+  const en = String(city?.cityNameEnglish || "").trim();
+  if (ko && en) {
+    return `${ko} (${en})`;
   }
-
-  return english || korean;
+  return ko || en || "";
 }
 
-function getNationalitySearchText(nationality) {
-  return [nationality?.countryNameKorean, nationality?.countryNameEnglish, nationality?.countryCode]
+function getCitySearchText(city) {
+  return [city?.cityNameKorean, city?.cityNameEnglish, city?.name]
     .filter(Boolean)
     .join(" ");
 }
@@ -36,25 +39,39 @@ function formatKeywordLabel(label) {
   return text.startsWith("#") ? text : `#${text}`;
 }
 
+function isFilled(value) {
+  return String(value || "").trim().length > 0;
+}
+
 export function SignUpScreen({ navigation }) {
   const { signup, login } = useAuth();
-  const [form, setForm] = useState({
-    username: "",
-    password: "",
-    name: "",
-    email: "",
-    phone: "",
-    sex: "",
-    introduction: "",
-  });
-  const [nationalityQuery, setNationalityQuery] = useState("");
-  const [selectedNationality, setSelectedNationality] = useState(null);
-  const [nationalities, setNationalities] = useState([]);
-  const [keywords, setKeywords] = useState([]);
-  const [selectedKeywordIds, setSelectedKeywordIds] = useState([]);
-  const [keywordPage, setKeywordPage] = useState(0);
+
+  const [step, setStep] = useState(STEP_RESIDENCE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const [cities, setCities] = useState([]);
+  const [keywords, setKeywords] = useState([]);
+
+  const [residenceQuery, setResidenceQuery] = useState("");
+  const [selectedResidenceCity, setSelectedResidenceCity] = useState(null);
+
+  const [selectedKeywordIds, setSelectedKeywordIds] = useState([]);
+
+  const [tripCityQuery, setTripCityQuery] = useState("");
+  const [selectedTripCity, setSelectedTripCity] = useState(null);
+  const [tripStartDate, setTripStartDate] = useState("");
+  const [tripEndDate, setTripEndDate] = useState("");
+
+  const [profile, setProfile] = useState({
+    name: "",
+    sex: "",
+    username: "",
+    password: "",
+    email: "",
+    phone: "",
+    introduction: "",
+  });
 
   const keywordCountLabel = useMemo(() => {
     if (selectedKeywordIds.length === 0) {
@@ -64,57 +81,75 @@ export function SignUpScreen({ navigation }) {
     return `${selectedKeywordIds.length}개 선택`;
   }, [selectedKeywordIds.length]);
 
-  const totalKeywordPages = useMemo(
-    () => Math.max(1, Math.ceil(keywords.length / KEYWORDS_PER_PAGE)),
-    [keywords.length],
-  );
+  useEffect(() => {
+    let mounted = true;
 
-  const pagedKeywords = useMemo(() => {
-    const startIndex = keywordPage * KEYWORDS_PER_PAGE;
-    return keywords.slice(startIndex, startIndex + KEYWORDS_PER_PAGE);
-  }, [keywordPage, keywords]);
+    async function loadData() {
+      try {
+        const [loadedCities, keywordResponse] = await Promise.all([
+          fetchAllCities(),
+          fetchKeywords(),
+        ]);
 
-  function updateField(key, value) {
-    setForm((previous) => ({
+        if (!mounted) {
+          return;
+        }
+
+        const dedupedCities = Array.from(
+          new Map((loadedCities ?? []).map((city) => [city?.id, city])).values(),
+        ).sort((a, b) => String(getCityDisplayName(a)).localeCompare(String(getCityDisplayName(b))));
+        const loadedKeywords = (keywordResponse?.keywords ?? [])
+          .slice()
+          .sort((a, b) => Number(b?.priority ?? 0) - Number(a?.priority ?? 0));
+
+        setCities(dedupedCities);
+        setKeywords(loadedKeywords);
+      } catch {
+        if (!mounted) {
+          return;
+        }
+
+        setCities([]);
+        setKeywords([]);
+      }
+    }
+
+    loadData();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  function updateProfile(key, value) {
+    setProfile((previous) => ({
       ...previous,
       [key]: value,
     }));
   }
 
-  useEffect(() => {
-    async function loadSignupData() {
-      try {
-        const [nationalityResponse, keywordResponse] = await Promise.all([
-          fetchNationalities(),
-          fetchKeywords(),
-        ]);
-
-        const loadedNationalities = nationalityResponse?.nationalities ?? [];
-        const loadedKeywords = keywordResponse?.keywords ?? [];
-
-        setNationalities(loadedNationalities);
-        setKeywords(loadedKeywords.sort((a, b) => Number(b?.priority ?? 0) - Number(a?.priority ?? 0)));
-        setKeywordPage(0);
-      } catch {
-        setNationalities([]);
-        setKeywords([]);
-        setKeywordPage(0);
-      }
-    }
-
-    loadSignupData();
-  }, []);
-
-  function handleNationalityQueryChange(nextQuery) {
-    setNationalityQuery(nextQuery);
+  function handleResidenceQueryChange(nextQuery) {
+    setResidenceQuery(nextQuery);
     const normalizedQuery = normalizeLiteral(nextQuery);
-    const exactMatched = nationalities.find((nationality) => {
-      const ko = normalizeLiteral(nationality?.countryNameKorean);
-      const en = normalizeLiteral(nationality?.countryNameEnglish);
-      const code = normalizeLiteral(nationality?.countryCode);
-      return normalizedQuery === ko || normalizedQuery === en || normalizedQuery === code;
+    const exactMatched = cities.find((city) => {
+      const ko = normalizeLiteral(city?.cityNameKorean);
+      const en = normalizeLiteral(city?.cityNameEnglish);
+      const fallback = normalizeLiteral(city?.name);
+      return normalizedQuery === ko || normalizedQuery === en || normalizedQuery === fallback;
     }) || null;
-    setSelectedNationality(exactMatched);
+    setSelectedResidenceCity(exactMatched);
+  }
+
+  function handleTripCityQueryChange(nextQuery) {
+    setTripCityQuery(nextQuery);
+    const normalizedQuery = normalizeLiteral(nextQuery);
+    const exactMatched = cities.find((city) => {
+      const ko = normalizeLiteral(city?.cityNameKorean);
+      const en = normalizeLiteral(city?.cityNameEnglish);
+      const fallback = normalizeLiteral(city?.name);
+      return normalizedQuery === ko || normalizedQuery === en || normalizedQuery === fallback;
+    }) || null;
+    setSelectedTripCity(exactMatched);
   }
 
   function toggleKeyword(keywordId) {
@@ -127,39 +162,109 @@ export function SignUpScreen({ navigation }) {
     });
   }
 
-  async function handleSignUp() {
-    const requiredKeys = ["username", "password", "name", "email", "phone", "sex"];
-    const missing = requiredKeys.some((key) => !form[key]?.trim());
+  function validateCurrentStep() {
+    if (step === STEP_RESIDENCE && !selectedResidenceCity?.id) {
+      setError("현재 거주지를 목록에서 선택해주세요.");
+      return false;
+    }
 
-    if (missing) {
-      setError("username, password, name, email, phone, sex are required.");
+    if (step === STEP_TRIP) {
+      const hasAnyTripInput = isFilled(tripCityQuery) || isFilled(tripStartDate) || isFilled(tripEndDate);
+      if (!hasAnyTripInput) {
+        return true;
+      }
+
+      if (!selectedTripCity?.id || !isFilled(tripStartDate) || !isFilled(tripEndDate)) {
+        setError("여행 계획을 입력하려면 도시와 날짜를 모두 선택해주세요.");
+        return false;
+      }
+
+      if (tripStartDate > tripEndDate) {
+        setError("종료일은 시작일보다 같거나 이후여야 합니다.");
+        return false;
+      }
+    }
+
+    if (step === STEP_PROFILE) {
+      if (!isFilled(profile.name) || !isFilled(profile.sex)) {
+        setError("닉네임과 성별은 필수입니다.");
+        return false;
+      }
+
+      if (!isFilled(profile.username) || !isFilled(profile.password) || !isFilled(profile.email) || !isFilled(profile.phone)) {
+        setError("아이디, 비밀번호, 이메일, 전화번호를 입력해주세요.");
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  function handleNextStep() {
+    if (!validateCurrentStep()) {
       return;
     }
 
-    if (!selectedNationality?.id) {
-      setError("국적을 목록에서 선택해주세요.");
+    setError(null);
+    setStep((previous) => Math.min(STEP_PROFILE, previous + 1));
+  }
+
+  function handleBackStep() {
+    setError(null);
+    if (step <= STEP_RESIDENCE) {
+      navigation.goBack();
+      return;
+    }
+
+    setStep((previous) => Math.max(STEP_RESIDENCE, previous - 1));
+  }
+
+  function handleSkipTripStep() {
+    setSelectedTripCity(null);
+    setTripCityQuery("");
+    setTripStartDate("");
+    setTripEndDate("");
+    setError(null);
+    setStep(STEP_PROFILE);
+  }
+
+  async function handleCompleteSignup() {
+    if (!validateCurrentStep()) {
       return;
     }
 
     setLoading(true);
     setError(null);
-
     try {
       await signup({
-        username: form.username.trim(),
-        password: form.password,
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        sex: form.sex.trim(),
-        introduction: form.introduction?.trim() ? form.introduction.trim() : null,
-        nationalityId: selectedNationality.id,
+        username: profile.username.trim(),
+        password: profile.password,
+        name: profile.name.trim(),
+        email: profile.email.trim(),
+        phone: profile.phone.trim(),
+        sex: profile.sex,
+        introduction: profile.introduction?.trim() ? profile.introduction.trim() : null,
+        nationalityId: selectedResidenceCity?.nationalityId || null,
         keywordIds: selectedKeywordIds,
       });
 
-      await login(form.username.trim(), form.password);
+      await login(profile.username.trim(), profile.password);
+
+      if (selectedResidenceCity?.id) {
+        await createLocal({ cityId: selectedResidenceCity.id });
+      }
+
+      if (selectedTripCity?.id && isFilled(tripStartDate) && isFilled(tripEndDate)) {
+        const tripTitle = `${getCityDisplayName(selectedTripCity)} 여행`;
+        await createTrip({
+          title: tripTitle,
+          cityId: selectedTripCity.id,
+          startDate: tripStartDate,
+          endDate: tripEndDate,
+        });
+      }
     } catch (requestError) {
-      setError(requestError?.message ?? "Sign up failed.");
+      setError(requestError?.message || "회원가입 처리에 실패했습니다.");
     } finally {
       setLoading(false);
     }
@@ -167,237 +272,286 @@ export function SignUpScreen({ navigation }) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>회원가입</Text>
-      <Text style={styles.subtitle}>기본 정보와 여행 스타일을 설정해주세요.</Text>
+      <View style={styles.headerRow}>
+        <Pressable onPress={handleBackStep}>
+          <Text style={styles.backText}>이전</Text>
+        </Pressable>
+        <Text style={styles.stepText}>{step + 1} / {STEP_COUNT}</Text>
+      </View>
 
-      <View style={styles.form}>
-        <Field label="Username" value={form.username} onChangeText={(v) => updateField("username", v)} />
-        <Field label="Password" value={form.password} onChangeText={(v) => updateField("password", v)} secureTextEntry />
-        <Field label="Name" value={form.name} onChangeText={(v) => updateField("name", v)} />
-        <Field label="Email" value={form.email} onChangeText={(v) => updateField("email", v)} />
-        <Field label="Phone" value={form.phone} onChangeText={(v) => updateField("phone", v)} />
+      <View style={styles.progressRow}>
+        {[0, 1, 2, 3].map((index) => (
+          <View key={index} style={[styles.progressDot, index <= step && styles.progressDotActive]} />
+        ))}
+      </View>
 
-        <Text style={styles.label}>Nationality</Text>
-        <SearchDropdown
-          value={nationalityQuery}
-          onChangeText={handleNationalityQueryChange}
-          placeholder="국가명을 입력하세요"
-          items={nationalities}
-          selectedItem={selectedNationality}
-          getItemKey={(nationality) => nationality.id}
-          getItemLabel={getNationalityDisplayName}
-          getItemSearchText={getNationalitySearchText}
-          onSelectItem={(nationality) => {
-            setSelectedNationality(nationality);
-            setNationalityQuery(getNationalityDisplayName(nationality));
-            setError(null);
-          }}
-          emptyText="일치하는 국가가 없습니다."
-        />
+      {step === STEP_RESIDENCE ? (
+        <View style={styles.card}>
+          <Text style={styles.title}>반가워요!</Text>
+          <Text style={styles.subtitle}>현재 거주지를 알려주세요.</Text>
+          <Text style={styles.helper}>상세한 위치를 입력할수록 좋아요.</Text>
 
-        <View style={styles.keywordHeaderRow}>
-          <Text style={styles.label}>여행 스타일 키워드</Text>
-          <Text style={styles.keywordCount}>{keywordCountLabel}</Text>
+          <SearchDropdown
+            value={residenceQuery}
+            onChangeText={handleResidenceQueryChange}
+            placeholder="검색어를 입력하세요"
+            items={cities}
+            selectedItem={selectedResidenceCity}
+            getItemKey={(city) => city.id}
+            getItemLabel={getCityDisplayName}
+            getItemSearchText={getCitySearchText}
+            onSelectItem={(city) => {
+              setSelectedResidenceCity(city);
+              setResidenceQuery(getCityDisplayName(city));
+              setError(null);
+            }}
+            emptyText="일치하는 도시가 없습니다."
+          />
         </View>
-        <Text style={styles.keywordHint}>중복 선택 가능</Text>
-        <View style={styles.keywordWrap}>
-          {pagedKeywords.map((keyword) => {
-            const active = selectedKeywordIds.includes(keyword.id);
-            return (
-              <Pressable
-                key={keyword.id}
-                style={[styles.keywordChip, active && styles.keywordChipActive]}
-                onPress={() => toggleKeyword(keyword.id)}
-              >
-                <Text style={[styles.keywordChipText, active && styles.keywordChipTextActive]}>
-                  {formatKeywordLabel(keyword.label)}
-                </Text>
-              </Pressable>
-            );
-          })}
+      ) : null}
+
+      {step === STEP_KEYWORDS ? (
+        <View style={styles.card}>
+          <Text style={styles.title}>나의 여행 스타일 키워드</Text>
+          <Text style={styles.subtitle}>가장 가까운 키워드를 선택해주세요.</Text>
+          <Text style={styles.helper}>중복 선택 가능 · {keywordCountLabel}</Text>
+
+          <View style={styles.keywordWrap}>
+            {keywords.map((keyword) => {
+              const active = selectedKeywordIds.includes(keyword.id);
+              return (
+                <Pressable
+                  key={keyword.id}
+                  style={[styles.keywordChip, active && styles.keywordChipActive]}
+                  onPress={() => toggleKeyword(keyword.id)}
+                >
+                  <Text style={[styles.keywordChipText, active && styles.keywordChipTextActive]}>
+                    {formatKeywordLabel(keyword.label)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-        {keywords.length > KEYWORDS_PER_PAGE ? (
-          <View style={styles.keywordPaginationRow}>
-            <Pressable
-              style={[styles.keywordPageBtn, keywordPage <= 0 && styles.keywordPageBtnDisabled]}
-              disabled={keywordPage <= 0}
-              onPress={() => setKeywordPage((previous) => Math.max(0, previous - 1))}
-            >
-              <Text style={styles.keywordPageBtnText}>이전</Text>
+      ) : null}
+
+      {step === STEP_TRIP ? (
+        <View style={styles.card}>
+          <Text style={styles.title}>곧 떠날 여정이 있다면 알려주세요!</Text>
+          <Text style={styles.subtitle}>미리 밍글러를 위한 연결을 준비할게요.</Text>
+
+          <Text style={styles.label}>어디로 떠나시나요?</Text>
+          <SearchDropdown
+            value={tripCityQuery}
+            onChangeText={handleTripCityQueryChange}
+            placeholder="검색어를 입력하세요"
+            items={cities}
+            selectedItem={selectedTripCity}
+            getItemKey={(city) => city.id}
+            getItemLabel={getCityDisplayName}
+            getItemSearchText={getCitySearchText}
+            onSelectItem={(city) => {
+              setSelectedTripCity(city);
+              setTripCityQuery(getCityDisplayName(city));
+              setError(null);
+            }}
+            emptyText="일치하는 도시가 없습니다."
+          />
+
+          <Text style={styles.label}>언제 머무르시나요?</Text>
+          <CalendarDateField
+            label="시작일"
+            value={tripStartDate}
+            onChange={(dateValue) => {
+              setTripStartDate(dateValue);
+              if (tripEndDate && tripEndDate < dateValue) {
+                setTripEndDate("");
+              }
+            }}
+            maxDate={tripEndDate || undefined}
+            placeholder="0000.00.00"
+          />
+          <CalendarDateField
+            label="종료일"
+            value={tripEndDate}
+            onChange={setTripEndDate}
+            minDate={tripStartDate || undefined}
+            placeholder="0000.00.00"
+          />
+
+          <Pressable style={styles.skipButton} onPress={handleSkipTripStep}>
+            <Text style={styles.skipButtonText}>건너뛰기</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {step === STEP_PROFILE ? (
+        <View style={styles.card}>
+          <Text style={styles.title}>마지막이에요!</Text>
+          <Text style={styles.subtitle}>기본 정보를 설정해주세요.</Text>
+
+          <Text style={styles.label}>닉네임</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="닉네임을 입력해주세요"
+            value={profile.name}
+            onChangeText={(value) => updateProfile("name", value)}
+          />
+
+          <Text style={styles.label}>성별</Text>
+          <View style={styles.sexRow}>
+            <Pressable style={[styles.sexButton, profile.sex === "FEMALE" && styles.sexButtonActive]} onPress={() => updateProfile("sex", "FEMALE")}>
+              <Text style={[styles.sexText, profile.sex === "FEMALE" && styles.sexTextActive]}>여자</Text>
             </Pressable>
-            <Text style={styles.keywordPageText}>{keywordPage + 1} / {totalKeywordPages}</Text>
-            <Pressable
-              style={[styles.keywordPageBtn, keywordPage >= totalKeywordPages - 1 && styles.keywordPageBtnDisabled]}
-              disabled={keywordPage >= totalKeywordPages - 1}
-              onPress={() => setKeywordPage((previous) => Math.min(totalKeywordPages - 1, previous + 1))}
-            >
-              <Text style={styles.keywordPageBtnText}>다음</Text>
+            <Pressable style={[styles.sexButton, profile.sex === "MALE" && styles.sexButtonActive]} onPress={() => updateProfile("sex", "MALE")}>
+              <Text style={[styles.sexText, profile.sex === "MALE" && styles.sexTextActive]}>남자</Text>
             </Pressable>
           </View>
-        ) : null}
 
-        <Text style={styles.label}>Sex</Text>
-        <View style={styles.sexRow}>
-          <Pressable
-            style={[styles.sexButton, form.sex === "MALE" && styles.sexButtonActive]}
-            onPress={() => updateField("sex", "MALE")}
-          >
-            <Text style={[styles.sexButtonText, form.sex === "MALE" && styles.sexButtonTextActive]}>MALE</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.sexButton, form.sex === "FEMALE" && styles.sexButtonActive]}
-            onPress={() => updateField("sex", "FEMALE")}
-          >
-            <Text style={[styles.sexButtonText, form.sex === "FEMALE" && styles.sexButtonTextActive]}>FEMALE</Text>
-          </Pressable>
+          <Text style={styles.label}>아이디</Text>
+          <TextInput style={styles.input} autoCapitalize="none" value={profile.username} onChangeText={(value) => updateProfile("username", value)} />
+
+          <Text style={styles.label}>비밀번호</Text>
+          <TextInput style={styles.input} secureTextEntry value={profile.password} onChangeText={(value) => updateProfile("password", value)} />
+
+          <Text style={styles.label}>이메일</Text>
+          <TextInput style={styles.input} autoCapitalize="none" keyboardType="email-address" value={profile.email} onChangeText={(value) => updateProfile("email", value)} />
+
+          <Text style={styles.label}>전화번호</Text>
+          <TextInput style={styles.input} keyboardType="phone-pad" value={profile.phone} onChangeText={(value) => updateProfile("phone", value)} />
+
+          <Text style={styles.label}>소개 (선택)</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            multiline
+            value={profile.introduction}
+            onChangeText={(value) => updateProfile("introduction", value)}
+          />
         </View>
+      ) : null}
 
-        <Field
-          label="Introduction (optional)"
-          value={form.introduction}
-          onChangeText={(v) => updateField("introduction", v)}
-          multiline
-        />
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Pressable style={styles.primaryBtn} onPress={handleSignUp} disabled={loading}>
-          <Text style={styles.primaryBtnText}>{loading ? "가입 중..." : "회원가입"}</Text>
-        </Pressable>
-
-        <Pressable style={styles.secondaryBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.secondaryBtnText}>로그인으로 돌아가기</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        style={[styles.primaryButton, loading && styles.primaryButtonDisabled]}
+        onPress={step === STEP_PROFILE ? handleCompleteSignup : handleNextStep}
+        disabled={loading}
+      >
+        <Text style={styles.primaryButtonText}>
+          {loading ? "처리 중..." : step === STEP_PROFILE ? "확인" : "다음"}
+        </Text>
+      </Pressable>
     </ScrollView>
-  );
-}
-
-function Field({ label, ...inputProps }) {
-  return (
-    <>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={[styles.input, inputProps.multiline && styles.textArea]}
-        autoCapitalize="none"
-        placeholder={inputProps.placeholder || label}
-        {...inputProps}
-      />
-    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#F5F6F8",
     minHeight: "100%",
-    paddingHorizontal: 20,
+    backgroundColor: "#F6F7FA",
     paddingTop: 64,
-    paddingBottom: 30,
-    gap: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    gap: 12,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#111",
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  subtitle: {
+  backText: {
+    color: "#3F4A60",
     fontSize: 14,
-    color: "#666",
+    fontWeight: "700",
   },
-  form: {
-    marginTop: 6,
-    backgroundColor: "#FFF",
-    borderRadius: 14,
-    padding: 14,
-    gap: 8,
-  },
-  label: {
+  stepText: {
+    color: "#5F6980",
     fontSize: 13,
     fontWeight: "600",
-    color: "#666",
+  },
+  progressRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  progressDot: {
+    flex: 1,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: "#D9DEE8",
+  },
+  progressDotActive: {
+    backgroundColor: "#1C73F0",
+  },
+  card: {
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E7EBF2",
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    gap: 8,
+  },
+  title: {
+    color: "#101827",
+    fontSize: 22,
+    fontWeight: "800",
+    marginBottom: 2,
+  },
+  subtitle: {
+    color: "#2A364F",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  helper: {
+    color: "#75809B",
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  label: {
+    marginTop: 4,
+    color: "#59627A",
+    fontSize: 13,
+    fontWeight: "600",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#D5D5D5",
-    borderRadius: 10,
-    backgroundColor: "#FFF",
+    borderColor: "#D5DBE7",
+    borderRadius: 11,
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 12,
     paddingVertical: 10,
+    color: "#101827",
+    fontSize: 14,
   },
   textArea: {
-    minHeight: 70,
+    minHeight: 80,
     textAlignVertical: "top",
   },
-  keywordHeaderRow: {
-    marginTop: 4,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  keywordCount: {
-    fontSize: 12,
-    color: "#4F7DF3",
-    fontWeight: "600",
-  },
-  keywordHint: {
-    marginTop: -2,
-    fontSize: 12,
-    color: "#8D8D8D",
-  },
   keywordWrap: {
+    marginTop: 4,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 4,
-  },
-  keywordPaginationRow: {
-    marginTop: 2,
-    marginBottom: 4,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  keywordPageBtn: {
-    borderWidth: 1,
-    borderColor: "#D4DEEE",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: "#FFFFFF",
-  },
-  keywordPageBtnDisabled: {
-    opacity: 0.45,
-  },
-  keywordPageBtnText: {
-    fontSize: 12,
-    color: "#355383",
-    fontWeight: "600",
-  },
-  keywordPageText: {
-    fontSize: 12,
-    color: "#6F778B",
-    fontWeight: "600",
   },
   keywordChip: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#D9E4FF",
-    backgroundColor: "#F3F6FF",
+    borderColor: "#D8E2F5",
+    backgroundColor: "#F3F7FF",
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
   keywordChipActive: {
-    borderColor: "#0169FE",
+    borderColor: "#1C73F0",
     backgroundColor: "#EAF2FF",
   },
   keywordChipText: {
-    color: "#3A4A6B",
+    color: "#34466C",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   keywordChipTextActive: {
-    color: "#0169FE",
+    color: "#145FCA",
   },
   sexRow: {
     flexDirection: "row",
@@ -405,49 +559,55 @@ const styles = StyleSheet.create({
   },
   sexButton: {
     flex: 1,
-    height: 38,
+    height: 40,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#D5D5D5",
+    borderColor: "#D5DBE7",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFF",
   },
   sexButtonActive: {
-    borderColor: "#0169FE",
+    borderColor: "#1C73F0",
     backgroundColor: "#EAF2FF",
   },
-  sexButtonText: {
-    color: "#666",
+  sexText: {
+    color: "#4F5D7D",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  sexTextActive: {
+    color: "#145FCA",
+  },
+  skipButton: {
+    marginTop: 8,
+    alignSelf: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  skipButtonText: {
+    color: "#6F7890",
+    fontSize: 13,
     fontWeight: "700",
   },
-  sexButtonTextActive: {
-    color: "#0169FE",
-  },
-  error: {
+  errorText: {
     color: "#C62828",
     fontSize: 13,
+    textAlign: "center",
   },
-  primaryBtn: {
+  primaryButton: {
     marginTop: 4,
-    backgroundColor: "#0169FE",
-    borderRadius: 10,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#1C73F0",
     alignItems: "center",
-    paddingVertical: 10,
+    justifyContent: "center",
   },
-  primaryBtnText: {
-    color: "#FFF",
-    fontWeight: "700",
+  primaryButtonDisabled: {
+    opacity: 0.65,
   },
-  secondaryBtn: {
-    borderWidth: 1,
-    borderColor: "#0169FE",
-    borderRadius: 10,
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  secondaryBtnText: {
-    color: "#0169FE",
-    fontWeight: "700",
+  primaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800",
   },
 });
