@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../auth";
 import { decodeUserIdFromToken } from "../auth/userId";
-import { fetchLocals, fetchTrips } from "../services";
+import { acceptQuickMatch, declineQuickMatch, fetchLocals, fetchTrips } from "../services";
 import { navigationRef } from "../navigation/navigationRef";
 import { joinMingleChatRoom } from "../services/chatService";
 import {
@@ -78,6 +78,7 @@ export function QuickMatchAlertListener() {
   const userSubscriptionRef = useRef(null);
   const lastNotificationAtRef = useRef({});
   const handledAcceptedQuickMatchesRef = useRef(new Set());
+  const resolvedQuickMatchIdsRef = useRef(new Set());
   const incomingQuickMatchIdRef = useRef(null);
   const bannerTimerRef = useRef(null);
 
@@ -154,11 +155,13 @@ export function QuickMatchAlertListener() {
     }
 
     setIncomingActionLoading(true);
+    resolvedQuickMatchIdsRef.current.add(quickMatchId);
     try {
-      if (!clientRef.current?.connected) {
-        throw new Error("소켓 연결이 준비되지 않았습니다.");
+      if (clientRef.current?.connected) {
+        await publishAcceptQuickMatch(clientRef.current, quickMatchId);
+      } else {
+        await acceptQuickMatch(quickMatchId);
       }
-      await publishAcceptQuickMatch(clientRef.current, quickMatchId);
       setPendingAcceptedQuickMatchId(quickMatchId);
       setIncomingQuickMatch(null);
       showInAppBanner("빠른 매칭 수락 요청을 보냈어요.");
@@ -176,11 +179,13 @@ export function QuickMatchAlertListener() {
     }
 
     setIncomingActionLoading(true);
+    resolvedQuickMatchIdsRef.current.add(quickMatchId);
     try {
-      if (!clientRef.current?.connected) {
-        throw new Error("소켓 연결이 준비되지 않았습니다.");
+      if (clientRef.current?.connected) {
+        await publishDeclineQuickMatch(clientRef.current, quickMatchId);
+      } else {
+        await declineQuickMatch(quickMatchId);
       }
-      await publishDeclineQuickMatch(clientRef.current, quickMatchId);
       setIncomingQuickMatch(null);
       showInAppBanner("빠른 매칭을 거절했어요.");
     } catch (error) {
@@ -215,10 +220,13 @@ export function QuickMatchAlertListener() {
       const userTrips = (tripsResponse?.trips ?? []).filter((trip) => toNumberOrNull(trip?.userId) === userId);
       const trip = pickCurrentTrip(userTrips);
       const tripCityId = toNumberOrNull(trip?.cityId);
+      const tripCityIds = userTrips
+        .map((tripItem) => toNumberOrNull(tripItem?.cityId))
+        .filter(Boolean);
       const localCityIds = (localsResponse?.locals ?? [])
         .map((local) => toNumberOrNull(local?.city?.id))
         .filter(Boolean);
-      const merged = Array.from(new Set([tripCityId, ...localCityIds].filter(Boolean))).sort((a, b) => a - b);
+      const merged = Array.from(new Set([tripCityId, ...tripCityIds, ...localCityIds].filter(Boolean))).sort((a, b) => a - b);
       setSubscribedCityIds(merged);
     } catch {
       setSubscribedCityIds([]);
@@ -293,12 +301,12 @@ export function QuickMatchAlertListener() {
         return;
       }
 
-      if (eventType === "QUICK_MATCH_ACCEPTED" && !isRequesterEventForMe) {
-        return;
-      }
-
       if (eventType === "QUICK_MATCH_ERROR") {
         if (isAlreadyAcceptedError(event)) {
+          const alreadyAcceptedId = toNumberOrNull(event?.quickMatch?.id) || pendingAcceptedQuickMatchId;
+          if (alreadyAcceptedId) {
+            resolvedQuickMatchIdsRef.current.add(alreadyAcceptedId);
+          }
           setIncomingQuickMatch(null);
           setIncomingActionLoading(false);
           if (pendingAcceptedQuickMatchId) {
@@ -321,6 +329,13 @@ export function QuickMatchAlertListener() {
 
       if (eventType === "QUICK_MATCH_ACCEPTED") {
         const quickMatchId = toNumberOrNull(event?.quickMatch?.id);
+        if (quickMatchId) {
+          resolvedQuickMatchIdsRef.current.add(quickMatchId);
+          setIncomingQuickMatch((prev) => {
+            const prevId = toNumberOrNull(prev?.quickMatch?.id);
+            return prevId && prevId === quickMatchId ? null : prev;
+          });
+        }
         const acceptedChatRoomId = toNumberOrNull(event?.chatRoom?.id);
         const acceptedMingleId = toNumberOrNull(event?.quickMatch?.mingleId);
         const alreadyHandled = quickMatchId ? handledAcceptedQuickMatchesRef.current.has(quickMatchId) : false;
@@ -363,6 +378,16 @@ export function QuickMatchAlertListener() {
           }
         }
       }
+      if (eventType === "QUICK_MATCH_DECLINED") {
+        const quickMatchId = toNumberOrNull(event?.quickMatch?.id);
+        if (quickMatchId) {
+          resolvedQuickMatchIdsRef.current.add(quickMatchId);
+          setIncomingQuickMatch((prev) => {
+            const prevId = toNumberOrNull(prev?.quickMatch?.id);
+            return prevId && prevId === quickMatchId ? null : prev;
+          });
+        }
+      }
 
       if (!shouldNotify(event)) {
         return;
@@ -391,6 +416,7 @@ export function QuickMatchAlertListener() {
         console.log("[QM SOCKET] CITY EVENT", event?.eventType || "-", event?.quickMatch?.id || "-");
         const quickMatch = event?.quickMatch;
         const eventType = event?.eventType;
+        const quickMatchId = toNumberOrNull(quickMatch?.id);
         const requesterUserId = toNumberOrNull(quickMatch?.requesterUserId);
         const targetUserIds = event?.targetUserIds ?? [];
         const isRequester = requesterUserId && requesterUserId === userId;
@@ -402,6 +428,9 @@ export function QuickMatchAlertListener() {
         }
 
         if (!isTargetUser) {
+          return;
+        }
+        if (quickMatchId && resolvedQuickMatchIdsRef.current.has(quickMatchId)) {
           return;
         }
 
