@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
@@ -181,6 +181,10 @@ export function QuickMatch({ navigation, route }) {
               cityId: null,
               quickMatchId: null,
             };
+            Alert.alert(
+              "빠른 매칭 안내",
+              "다른 밍글러가 먼저 수락했어요.",
+            );
             navigation.goBack();
             return;
           }
