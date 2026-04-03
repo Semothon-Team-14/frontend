@@ -12,7 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
-import { fetchChatRooms, fetchLocals, fetchUsers } from "../../services";
+import { fetchChatRooms, fetchLocals, fetchMingles, fetchUsers } from "../../services";
 
 const TAB_LOCAL = "LOCAL";
 const TAB_TRAVELER = "TRAVELER";
@@ -62,6 +62,7 @@ export function Chats({ navigation, route }) {
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const [rooms, setRooms] = useState([]);
   const [usersById, setUsersById] = useState({});
+  const [mingleTitleById, setMingleTitleById] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState(TAB_LOCAL);
@@ -102,6 +103,13 @@ export function Chats({ navigation, route }) {
         return room.name;
       }
 
+      if (room?.mingleId) {
+        const mingleTitle = mingleTitleById[Number(room.mingleId)];
+        if (mingleTitle) {
+          return mingleTitle;
+        }
+      }
+
       if (room?.directChat) {
         const otherUserId = (room?.participantUserIds || []).find(
           (participantId) => participantId !== userId,
@@ -113,7 +121,7 @@ export function Chats({ navigation, route }) {
 
       return tx(`채팅방 #${room?.id}`, `Chat #${room?.id}`);
     },
-    [tx, userId, usersById],
+    [mingleTitleById, tx, userId, usersById],
   );
 
   const roomAvatarData = useCallback(
@@ -141,29 +149,41 @@ export function Chats({ navigation, route }) {
     setError(null);
 
     try {
-      const [roomResponse, usersResponse, localsResponse] = await Promise.all([
+      const [roomResponse, usersResponse, localsResponse, minglesResponse] = await Promise.all([
         fetchChatRooms(),
         fetchUsers(),
         fetchLocals(),
+        fetchMingles(),
       ]);
       const loadedRooms = roomResponse?.chatRooms ?? [];
       const loadedUsers = usersResponse?.users ?? [];
+      const loadedMingles = minglesResponse?.mingles ?? [];
       const localIds = new Set(
         (localsResponse?.locals ?? [])
           .map((entry) => Number(entry?.userId || 0))
           .filter((id) => Number.isFinite(id) && id > 0),
       );
+      const mingleTitleMap = loadedMingles.reduce((acc, mingle) => {
+        const mingleId = Number(mingle?.id || 0);
+        const title = String(mingle?.title || "").trim();
+        if (mingleId > 0 && title.length > 0) {
+          acc[mingleId] = title;
+        }
+        return acc;
+      }, {});
       const userMap = loadedUsers.reduce((acc, user) => {
         acc[user.id] = user;
         return acc;
       }, {});
 
       setUsersById(userMap);
+      setMingleTitleById(mingleTitleMap);
       setRooms(loadedRooms);
       setLocalUserIdSet(localIds);
     } catch (requestError) {
       setRooms([]);
       setUsersById({});
+      setMingleTitleById({});
       setLocalUserIdSet(new Set());
       setError(
         requestError?.message ||
