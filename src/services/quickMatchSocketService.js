@@ -107,3 +107,48 @@ export function subscribeUserQuickMatches(client, userId, onEvent) {
     }
   });
 }
+
+function publishWithReceipt(client, destination, body) {
+  return new Promise((resolve, reject) => {
+    if (!client?.connected) {
+      reject(new Error("WebSocket is not connected"));
+      return;
+    }
+
+    const receipt = `rcpt-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+    const timeoutId = setTimeout(() => {
+      reject(new Error("WebSocket receipt timeout"));
+    }, 6000);
+
+    client.watchForReceipt(receipt, () => {
+      clearTimeout(timeoutId);
+      resolve();
+    });
+
+    try {
+      client.publish({
+        destination,
+        headers: { receipt },
+        body: JSON.stringify(body || {}),
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      reject(error);
+    }
+  });
+}
+
+export function publishCreateQuickMatch(client, payload) {
+  debugLog("PUBLISH_CREATE", payload?.cityId, payload?.targetType);
+  return publishWithReceipt(client, "/app/quick-matches", payload);
+}
+
+export function publishAcceptQuickMatch(client, quickMatchId) {
+  debugLog("PUBLISH_ACCEPT", quickMatchId);
+  return publishWithReceipt(client, `/app/quick-matches/${quickMatchId}/accept`, {});
+}
+
+export function publishDeclineQuickMatch(client, quickMatchId) {
+  debugLog("PUBLISH_DECLINE", quickMatchId);
+  return publishWithReceipt(client, `/app/quick-matches/${quickMatchId}/decline`, {});
+}
