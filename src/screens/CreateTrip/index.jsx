@@ -388,7 +388,6 @@ export function CreateTrip({ navigation, route }) {
           <Ionicons name="chevron-back" size={24} color="#141414" />
         </Pressable>
         <Text style={styles.headerTitle}>{tx("새로운 여행지", "New Trip")}</Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <Text style={styles.sectionTitle}>{tx("여행지 등록", "Trip Setup")}</Text>
@@ -542,16 +541,14 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    gap: 8,
   },
   headerTitle: {
     color: "#171717",
     fontSize: 30 / 2,
     fontWeight: "800",
     letterSpacing: -0.2,
-  },
-  headerSpacer: {
-    width: 24,
   },
   sectionTitle: {
     color: "#1B1B1B",
