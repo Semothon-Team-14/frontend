@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  FlatList,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth";
@@ -17,30 +10,41 @@ import { fetchChatRooms, fetchUsers } from "../../services";
 const TAB_LOCAL = "LOCAL";
 const TAB_TRAVELER = "TRAVELER";
 
-function formatRoomTime(value, locale) {
+function formatRelativeRoomTime(value, locale) {
   if (!value) {
-    return "";
+    return locale === "ko" ? "방금 전" : "Just now";
   }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return "";
+    return locale === "ko" ? "방금 전" : "Just now";
   }
 
-  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs < 60000) {
+    return locale === "ko" ? "방금 전" : "Just now";
+  }
+
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 60) {
+    return locale === "ko" ? `${minutes}분 전` : `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return locale === "ko" ? `${hours}시간 전` : `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  return locale === "ko" ? `${days}일 전` : `${days}d ago`;
 }
 
 function roomSubtitle(room, tx) {
   if (room.directChat) {
-    return tx("1:1 밍글 채팅", "1:1 Chat");
+    return tx("밍글 수락됨", "Mingle accepted");
   }
 
-  return room.mingleId ? tx("여행 밍글 채팅", "Trip Chat") : tx("그룹 채팅", "Group Chat");
+  return room.mingleId ? tx("여행 밍글 채팅", "Trip chat") : tx("그룹 채팅", "Group chat");
 }
 
 export function Chats({ navigation, route }) {
@@ -159,9 +163,6 @@ export function Chats({ navigation, route }) {
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.headerTitle}>{tx("채팅", "Chats")}</Text>
-        <Pressable onPress={loadRooms} style={styles.refreshButton}>
-          <Ionicons name="refresh" size={18} color="#1C73F0" />
-        </Pressable>
       </View>
 
       <View style={styles.tabRow}>
@@ -210,50 +211,41 @@ export function Chats({ navigation, route }) {
         renderItem={({ item }) => {
           const title = roomListLabel(item);
           const avatar = roomAvatarData(item);
+          const relativeTime = formatRelativeRoomTime(item.updatedDateTime, locale);
+          const memberCount = Number(item?.participantUserIds?.length || 0);
+          const showMemberCount = !item?.directChat && memberCount > 0;
           return (
             <Pressable
               style={styles.roomItem}
-              onPress={() =>
-                navigation.navigate("ChatRoom", { chatRoomId: item.id })
-              }
+              onPress={() => navigation.navigate("ChatRoom", { chatRoomId: item.id })}
             >
               <View style={styles.avatarCircle}>
                 {avatar.type === "image" ? (
-                  <Image
-                    source={{ uri: avatar.imageUrl }}
-                    style={styles.avatarImage}
-                  />
+                  <Image source={{ uri: avatar.imageUrl }} style={styles.avatarImage} />
                 ) : avatar.type === "group" ? (
-                  <Ionicons name="people" size={18} color="#1D4ED8" />
+                  <Ionicons name="people" size={20} color="#1D4ED8" />
                 ) : (
-                  <Ionicons name="person" size={18} color="#1D4ED8" />
+                  <Ionicons name="person" size={20} color="#1D4ED8" />
                 )}
               </View>
 
               <View style={styles.roomMain}>
-                <View style={styles.roomTopRow}>
-                  <Text style={styles.roomName} numberOfLines={1}>
-                    {title}
-                  </Text>
-                  <View style={styles.roomMetaWrap}>
-                    <Text style={styles.roomTime}>
-                      {formatRoomTime(item.updatedDateTime, locale)}
-                    </Text>
-                    {Number(item?.unreadMessageCount || 0) > 0 ? (
-                      <View style={styles.unreadBadge}>
-                        <Text style={styles.unreadBadgeText}>
-                          {Number(item.unreadMessageCount) > 99
-                            ? "99+"
-                            : String(item.unreadMessageCount)}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
+                <View style={styles.roomNameRow}>
+                  <Text style={styles.roomName} numberOfLines={1}>{title}</Text>
+                  {showMemberCount ? <Text style={styles.roomMemberCount}>{memberCount}</Text> : null}
                 </View>
                 <Text style={styles.roomSubtitle} numberOfLines={1}>
-                  {roomSubtitle(item, tx)}
+                  {roomSubtitle(item, tx)} · {relativeTime}
                 </Text>
               </View>
+
+              {Number(item?.unreadMessageCount || 0) > 0 ? (
+                <View style={styles.unreadBadge}>
+                  <Text style={styles.unreadBadgeText}>
+                    {Number(item.unreadMessageCount) > 99 ? "99+" : String(item.unreadMessageCount)}
+                  </Text>
+                </View>
+              ) : null}
             </Pressable>
           );
         }}
@@ -278,82 +270,61 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     marginBottom: 12,
-    borderBottomColor: "#b8b8b8",
-    borderBottomWidth: 0.5,
-    paddingBottom: 8,
+    borderBottomColor: "#D6DBE4",
+    borderBottomWidth: 1,
+    paddingBottom: 10,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 33,
     fontWeight: "700",
-    color: "#111827",
-  },
-  refreshButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    color: "#1A1C21",
   },
   tabRow: {
     flexDirection: "row",
-    borderRadius: 14,
-    padding: 4,
+    paddingHorizontal: 2,
     marginBottom: 12,
   },
   tabButton: {
-    height: 32,
-    borderRadius: 16,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
-    paddingHorizontal: 14,
-    backgroundColor: "white",
+    marginRight: 8,
+    paddingHorizontal: 13,
+    backgroundColor: "#E9EDF4",
   },
   tabButtonActive: {
-    backgroundColor: "#1D4ED8",
+    backgroundColor: "#1D70FF",
   },
   tabText: {
-    color: "#4B5563",
-    fontSize: 14,
-    fontWeight: "600",
+    color: "#8A95A8",
+    fontSize: 12,
+    fontWeight: "700",
   },
   tabTextActive: {
     color: "#FFFFFF",
   },
   listContent: {
-    gap: 10,
+    gap: 4,
     paddingBottom: 16,
   },
   roomItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 2,
   },
   avatarCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#EAF2FF",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#CDD5E3",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#CFE0FF",
-  },
-  avatarText: {
-    color: "#1D4ED8",
-    fontSize: 16,
-    fontWeight: "700",
+    overflow: "hidden",
   },
   avatarImage: {
     width: "100%",
@@ -362,34 +333,34 @@ const styles = StyleSheet.create({
   roomMain: {
     flex: 1,
   },
-  roomTopRow: {
+  roomNameRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
+    gap: 4,
   },
   roomName: {
-    flex: 1,
-    color: "#111827",
-    fontSize: 15,
+    maxWidth: "86%",
+    color: "#171A21",
+    fontSize: 28,
     fontWeight: "700",
   },
-  roomTime: {
-    color: "#6B7280",
-    fontSize: 11,
-    fontWeight: "500",
+  roomMemberCount: {
+    color: "#1C73F0",
+    fontSize: 24,
+    fontWeight: "800",
   },
-  roomMetaWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+  roomSubtitle: {
+    marginTop: 1,
+    color: "#A0A8B8",
+    fontSize: 20,
+    fontWeight: "600",
   },
   unreadBadge: {
-    minWidth: 20,
-    height: 20,
+    minWidth: 22,
+    height: 22,
     paddingHorizontal: 6,
-    borderRadius: 10,
-    backgroundColor: "#1D4ED8",
+    borderRadius: 11,
+    backgroundColor: "#1D70FF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -398,13 +369,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
   },
-  roomSubtitle: {
-    marginTop: 3,
-    color: "#6B7280",
-    fontSize: 12,
-  },
   metaText: {
-    color: "#6B7280",
+    color: "#7F8798",
     fontSize: 13,
     textAlign: "center",
     paddingVertical: 12,
