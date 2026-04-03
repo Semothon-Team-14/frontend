@@ -6,7 +6,7 @@ import DirectionBlack from "../../icons/direction_black.svg";
 import TravelIcon from "../../icons/travelIcon.svg";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
-import { fetchChatRooms, fetchTrips, fetchUser, fetchUsers } from "../../services";
+import { fetchChatRooms, fetchMingleMinglers, fetchMingles, fetchTrips, fetchUser, fetchUsers } from "../../services";
 import { fetchAllCities } from "../../services/placeService";
 import { pickCurrentTrip } from "../../utils/trip";
 
@@ -65,6 +65,7 @@ export function MyPage({ navigation }) {
   const [trips, setTrips] = useState([]);
   const [chatRooms, setChatRooms] = useState([]);
   const [usersById, setUsersById] = useState({});
+  const [mingleCompanionUserIdsByCity, setMingleCompanionUserIdsByCity] = useState({});
   const [citiesById, setCitiesById] = useState({});
   const [currentCity, setCurrentCity] = useState(null);
 
@@ -134,6 +135,47 @@ export function MyPage({ navigation }) {
         acc[item.id] = item;
         return acc;
       }, {});
+      const targetCityIds = Array.from(
+        new Set(
+          loadedTrips
+            .map((trip) => Number(trip?.cityId || 0))
+            .filter((cityId) => Number.isFinite(cityId) && cityId > 0),
+        ),
+      );
+      const companionMap = {};
+      await Promise.all(
+        targetCityIds.map(async (cityId) => {
+          try {
+            const minglesResponse = await fetchMingles({ cityId });
+            const mingles = minglesResponse?.mingles ?? [];
+            const companionIds = new Set();
+            await Promise.all(
+              mingles.map(async (mingle) => {
+                try {
+                  const minglersResponse = await fetchMingleMinglers(mingle?.id);
+                  const minglers = minglersResponse?.minglers ?? [];
+                  const includesMe = minglers.some((mingler) => Number(mingler?.userId) === Number(userId));
+                  if (!includesMe) {
+                    return;
+                  }
+
+                  minglers.forEach((mingler) => {
+                    const nextUserId = Number(mingler?.userId || 0);
+                    if (nextUserId > 0 && nextUserId !== Number(userId)) {
+                      companionIds.add(nextUserId);
+                    }
+                  });
+                } catch {
+                  // Keep partial companion results even if one mingle call fails.
+                }
+              }),
+            );
+            companionMap[cityId] = Array.from(companionIds);
+          } catch {
+            companionMap[cityId] = [];
+          }
+        }),
+      );
       const currentTrip = pickCurrentTrip(loadedTrips);
       const city = cityMap[currentTrip?.cityId] || null;
 
@@ -141,6 +183,7 @@ export function MyPage({ navigation }) {
       setTrips(loadedTrips);
       setChatRooms(allChatRooms);
       setUsersById(userMap);
+      setMingleCompanionUserIdsByCity(companionMap);
       setCitiesById(cityMap);
       setCurrentCity(city);
     } catch {
@@ -148,6 +191,7 @@ export function MyPage({ navigation }) {
       setTrips([]);
       setChatRooms([]);
       setUsersById({});
+      setMingleCompanionUserIdsByCity({});
       setCitiesById({});
       setCurrentCity(null);
     }
@@ -187,14 +231,25 @@ export function MyPage({ navigation }) {
   function getRecentTripChatAvatars(trip) {
     const tripStart = parseDate(trip?.startDate);
     const tripEnd = parseDate(trip?.endDate);
-    if (!tripStart || !tripEnd) {
-      return [];
-    }
-    const tripStartAt = new Date(tripStart.getFullYear(), tripStart.getMonth(), tripStart.getDate(), 0, 0, 0, 0);
-    const tripEndAt = new Date(tripEnd.getFullYear(), tripEnd.getMonth(), tripEnd.getDate(), 23, 59, 59, 999);
+    const tripStartAt = tripStart
+      ? new Date(tripStart.getFullYear(), tripStart.getMonth(), tripStart.getDate(), 0, 0, 0, 0)
+      : null;
+    const tripEndAt = tripEnd
+      ? new Date(tripEnd.getFullYear(), tripEnd.getMonth(), tripEnd.getDate(), 23, 59, 59, 999)
+      : null;
 
     const seenOtherUserIds = new Set();
-    const avatars = [];
+    const orderedUserIds = [];
+
+    function pushUserId(nextUserId) {
+      const safeUserId = Number(nextUserId || 0);
+      if (safeUserId <= 0 || seenOtherUserIds.has(safeUserId)) {
+        return;
+      }
+
+      seenOtherUserIds.add(safeUserId);
+      orderedUserIds.push(safeUserId);
+    }
 
     for (const room of directChatRoomsByRecent) {
       const createdAt = parseDateTime(room?.createdDateTime);
@@ -203,24 +258,45 @@ export function MyPage({ navigation }) {
         continue;
       }
 
-      const overlapsTripWindow = createdAt <= tripEndAt && updatedAt >= tripStartAt;
-      if (!overlapsTripWindow) {
-        continue;
+      if (tripStartAt && tripEndAt) {
+        const overlapsTripWindow = createdAt <= tripEndAt && updatedAt >= tripStartAt;
+        if (!overlapsTripWindow) {
+          continue;
+        }
       }
 
       const otherUserId = (room?.participantUserIds ?? []).find((participantId) => Number(participantId) !== Number(userId));
-      if (!otherUserId || seenOtherUserIds.has(otherUserId)) {
-        continue;
+      pushUserId(otherUserId);
+      if (orderedUserIds.length >= 3) {
+        break;
       }
+    }
 
-      seenOtherUserIds.add(otherUserId);
+    const cityCompanionUserIds = mingleCompanionUserIdsByCity[Number(trip?.cityId || 0)] ?? [];
+    cityCompanionUserIds.forEach((id) => {
+      if (orderedUserIds.length < 3) {
+        pushUserId(id);
+      }
+    });
+
+    if (orderedUserIds.length === 0) {
+      for (const room of directChatRoomsByRecent) {
+        const otherUserId = (room?.participantUserIds ?? []).find((participantId) => Number(participantId) !== Number(userId));
+        pushUserId(otherUserId);
+        if (orderedUserIds.length >= 3) {
+          break;
+        }
+      }
+    }
+
+    const avatars = [];
+    for (const otherUserId of orderedUserIds) {
       const otherUser = usersById[otherUserId];
       avatars.push({
         userId: otherUserId,
         imageUrl: otherUser?.profileImageUrl || null,
         fallbackText: String(otherUser?.name || `U${otherUserId}`).slice(0, 1).toUpperCase(),
       });
-
       if (avatars.length >= 3) {
         break;
       }
