@@ -209,7 +209,12 @@ export function QuickMatchAlertListener() {
         acceptedResult = await acceptQuickMatch(quickMatchId);
       }
       setIncomingQuickMatch(null);
-      const acceptedChatRoomId = toNumberOrNull(acceptedResult?.result?.chatRoom?.id);
+      const acceptedChatRoomId =
+        toNumberOrNull(acceptedResult?.result?.chatRoom?.id) ||
+        (await resolveDirectQuickMatchChatRoomId({
+          quickMatchId,
+          acceptedByUserId: userId,
+        }));
       if (acceptedChatRoomId && navigationRef.isReady()) {
         navigationRef.navigate("ChatRoom", { chatRoomId: acceptedChatRoomId });
       }
