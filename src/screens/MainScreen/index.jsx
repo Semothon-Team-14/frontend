@@ -67,6 +67,7 @@ export function MainScreen() {
   const [placesByType, setPlacesByType] = useState({ restaurant: [], cafe: [] });
   const [placeLoading, setPlaceLoading] = useState(false);
   const [placeError, setPlaceError] = useState(null);
+  const [homeDataVersion, setHomeDataVersion] = useState(0);
   const [savedRestaurantByPlaceId, setSavedRestaurantByPlaceId] = useState({});
   const [savedCafeByPlaceId, setSavedCafeByPlaceId] = useState({});
   const placeRequestSequenceRef = useRef(0);
@@ -188,6 +189,7 @@ export function MainScreen() {
       setPlaceLoading(false);
       setSavedRestaurantByPlaceId(savedRestaurantMap);
       setSavedCafeByPlaceId(savedCafeMap);
+      setHomeDataVersion((prev) => prev + 1);
     } catch {
       setCurrentTrip(null);
       setSelectedCity(null);
@@ -197,6 +199,7 @@ export function MainScreen() {
       setPlaceError(null);
       setSavedRestaurantByPlaceId({});
       setSavedCafeByPlaceId({});
+      setHomeDataVersion((prev) => prev + 1);
     }
   }
 
@@ -208,7 +211,7 @@ export function MainScreen() {
 
   useEffect(() => {
     loadPlacesForType(selectedCity?.id, activePlaceType);
-  }, [selectedCity?.id, activePlaceType]);
+  }, [selectedCity?.id, activePlaceType, homeDataVersion]);
 
   async function handleSave(placeId) {
     if (activePlaceType === "cafe") {
