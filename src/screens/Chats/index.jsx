@@ -48,7 +48,7 @@ function uniqueMessages(messages) {
     .filter((message, index, array) => array.findIndex((item) => item.id === message.id) === index);
 }
 
-export function Chats() {
+export function Chats({ route }) {
   const { token } = useAuth();
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const clientRef = useRef(null);
@@ -161,6 +161,17 @@ export function Chats() {
   useEffect(() => {
     loadMessages(selectedRoomId);
   }, [selectedRoomId, loadMessages]);
+
+  useEffect(() => {
+    const requestedChatRoomId = Number(route?.params?.chatRoomId);
+    if (!Number.isFinite(requestedChatRoomId) || requestedChatRoomId <= 0) {
+      return;
+    }
+
+    if (rooms.some((room) => room.id === requestedChatRoomId)) {
+      setSelectedRoomId(requestedChatRoomId);
+    }
+  }, [rooms, route?.params?.chatRoomId]);
 
   useEffect(() => {
     const client = createChatSocketClient({
