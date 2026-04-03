@@ -255,21 +255,21 @@ export function ProfileEdit({ navigation }) {
             : tx("현재 모드: 여행자", "Current Mode: Traveler")}
         </Text>
         <View style={styles.modeToggleRow}>
-          <Text style={[styles.modeToggleLabel, travelerMode && styles.modeToggleLabelActive]}>
-            {tx("여행자", "Traveler")}
+          <Text style={[styles.modeToggleLabel, localMode && styles.modeToggleLabelActive]}>
+            {tx("로컬", "Local")}
           </Text>
           <Switch
-            value={localMode}
+            value={travelerMode}
             onValueChange={(nextValue) => {
-              const nextMode = nextValue ? HOME_MODE_LOCAL : HOME_MODE_TRAVELER;
+              const nextMode = nextValue ? HOME_MODE_TRAVELER : HOME_MODE_LOCAL;
               setSelectedHomeMode(nextMode);
               setCurrentHomeMode(nextMode);
             }}
             trackColor={{ false: "#6B7380", true: "#3E65FF" }}
             thumbColor="#FFFFFF"
           />
-          <Text style={[styles.modeToggleLabel, localMode && styles.modeToggleLabelActive]}>
-            {tx("로컬", "Local")}
+          <Text style={[styles.modeToggleLabel, travelerMode && styles.modeToggleLabelActive]}>
+            {tx("여행자", "Traveler")}
           </Text>
         </View>
       </View>
