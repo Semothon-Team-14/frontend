@@ -214,13 +214,6 @@ export function CreateTrip({ navigation, route }) {
   }
 
   async function handlePickTicket(source) {
-    if (!selectedCity?.id) {
-      const message = tx("먼저 도착 도시를 선택해주세요.", "Select the destination city first.");
-      setError(message);
-      Alert.alert(tx("티켓 스캔", "Ticket Scan"), message);
-      return;
-    }
-
     let permissionResult;
     try {
       permissionResult = source === "camera"
@@ -281,7 +274,6 @@ export function CreateTrip({ navigation, route }) {
     try {
       const mimeType = asset?.mimeType || "image/jpeg";
       const response = await recognizeBoardingPass({
-        cityId: Number(selectedCity.id),
         imageBase64: `data:${mimeType};base64,${asset.base64}`,
       });
       const draft = response?.draft ?? null;
@@ -293,6 +285,11 @@ export function CreateTrip({ navigation, route }) {
       setTitle(String(draft?.title || ""));
       setFromAirportCode(String(draft?.fromAirportCode || ""));
       setToAirportCode(String(draft?.toAirportCode || ""));
+      const detectedCity = cities.find((cityEntry) => Number(cityEntry?.id) === Number(draft?.cityId)) || null;
+      if (detectedCity) {
+        setSelectedCity(detectedCity);
+        setCityQuery(getCityDisplayName(detectedCity, isKorean));
+      }
       const nextStartDate = toDateOnly(draft?.startDate);
       setStartDate(nextStartDate);
       setDepartureDateTime(String(draft?.departureDateTime || ""));
