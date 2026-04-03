@@ -35,6 +35,25 @@ function getEventMessage(eventType) {
   return "빠른 매칭 알림이 도착했습니다.";
 }
 
+function unsubscribeAllCitySubscriptions(containerRef) {
+  const container = containerRef?.current;
+  if (!container) {
+    containerRef.current = new Map();
+    return;
+  }
+
+  if (typeof container.forEach === "function") {
+    container.forEach((subscription) => subscription?.unsubscribe?.());
+  } else if (Array.isArray(container)) {
+    container.forEach((subscription) => subscription?.unsubscribe?.());
+  }
+
+  if (typeof container.clear === "function") {
+    container.clear();
+  }
+  containerRef.current = new Map();
+}
+
 export function QuickMatchAlertListener() {
   const { token } = useAuth();
   const userId = useMemo(() => toNumberOrNull(decodeUserIdFromToken(token)), [token]);
@@ -221,8 +240,7 @@ export function QuickMatchAlertListener() {
     client.activate();
 
     return () => {
-      citySubscriptionRef.current.forEach((subscription) => subscription?.unsubscribe());
-      citySubscriptionRef.current.clear();
+      unsubscribeAllCitySubscriptions(citySubscriptionRef);
       userSubscriptionRef.current?.unsubscribe();
       userSubscriptionRef.current = null;
       client.deactivate();
@@ -338,14 +356,14 @@ export function QuickMatchAlertListener() {
   }, [pendingAcceptedQuickMatchId, socketReady, userId, shouldNotify, showInAppBanner, clearIncomingQuickMatchIfResolved]);
 
   useEffect(() => {
-    if (!socketReady || !clientRef.current || !userId || subscribedCityIds.length === 0) {
+    const nextCityIds = Array.isArray(subscribedCityIds) ? subscribedCityIds : [];
+    if (!socketReady || !clientRef.current || !userId || nextCityIds.length === 0) {
       return;
     }
 
-    citySubscriptionRef.current.forEach((subscription) => subscription?.unsubscribe());
-    citySubscriptionRef.current.clear();
+    unsubscribeAllCitySubscriptions(citySubscriptionRef);
 
-    subscribedCityIds.forEach((cityId) => {
+    nextCityIds.forEach((cityId) => {
       console.log("[QM SOCKET] SUBSCRIBE CITY", cityId);
       const subscription = subscribeCityQuickMatches(clientRef.current, cityId, (event) => {
         console.log("[QM SOCKET] CITY EVENT", event?.eventType || "-", event?.quickMatch?.id || "-");
@@ -377,13 +395,15 @@ export function QuickMatchAlertListener() {
         showInAppBanner(getEventMessage(eventType));
       });
       if (subscription) {
+        if (!(citySubscriptionRef.current instanceof Map)) {
+          citySubscriptionRef.current = new Map();
+        }
         citySubscriptionRef.current.set(cityId, subscription);
       }
     });
 
     return () => {
-      citySubscriptionRef.current.forEach((subscription) => subscription?.unsubscribe());
-      citySubscriptionRef.current.clear();
+      unsubscribeAllCitySubscriptions(citySubscriptionRef);
     };
   }, [socketReady, userId, subscribedCityIds, shouldNotify, showInAppBanner, clearIncomingQuickMatchIfResolved]);
 
