@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 function normalize(value) {
@@ -18,6 +18,28 @@ export function SearchDropdown({
   emptyText = "검색 결과가 없습니다.",
 }) {
   const [isFocused, setIsFocused] = useState(false);
+  const blurTimeoutRef = useRef(null);
+  const optionTapInProgressRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  function closeDropdownWithDelay() {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+    }
+
+    blurTimeoutRef.current = setTimeout(() => {
+      if (!optionTapInProgressRef.current) {
+        setIsFocused(false);
+      }
+    }, 180);
+  }
 
   const filteredItems = useMemo(() => {
     const query = normalize(value);
@@ -42,8 +64,13 @@ export function SearchDropdown({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setTimeout(() => setIsFocused(false), 120)}
+        onFocus={() => {
+          if (blurTimeoutRef.current) {
+            clearTimeout(blurTimeoutRef.current);
+          }
+          setIsFocused(true);
+        }}
+        onBlur={closeDropdownWithDelay}
       />
 
       {showDropdown ? (
@@ -60,9 +87,16 @@ export function SearchDropdown({
                 return (
                   <Pressable
                     style={[styles.optionItem, active && styles.optionItemActive]}
+                    onPressIn={() => {
+                      optionTapInProgressRef.current = true;
+                    }}
                     onPress={() => {
                       onSelectItem(item);
+                      optionTapInProgressRef.current = false;
                       setIsFocused(false);
+                    }}
+                    onPressOut={() => {
+                      optionTapInProgressRef.current = false;
                     }}
                   >
                     <Text style={[styles.optionText, active && styles.optionTextActive]}>{getItemLabel(item)}</Text>
