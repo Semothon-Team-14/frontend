@@ -4,6 +4,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import MapView, { Marker } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
+import MingleMarkerActive from "../../icons/mingle_marker_active.svg";
+import MingleMarkerInactive from "../../icons/mingle_marker_inactive.svg";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
@@ -558,10 +560,11 @@ export function Nearby({ route }) {
                     coordinate={marker.coordinate}
                     onPress={() => setSelectedMingleId(marker.id)}
                   >
-                    <View style={[
-                      styles.markerDot,
-                      Number(selectedMingleId) === Number(marker.id) ? styles.markerDotActive : styles.markerDotInactive,
-                    ]} />
+                    {Number(selectedMingleId) === Number(marker.id) ? (
+                      <MingleMarkerActive width={22} height={28} />
+                    ) : (
+                      <MingleMarkerInactive width={20} height={26} />
+                    )}
                   </Marker>
                 ))}
               </MapView>
@@ -956,20 +959,6 @@ const styles = StyleSheet.create({
   mapEmpty: {
     color: "#6F778B",
     fontSize: 12,
-  },
-  markerDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-  },
-  markerDotActive: {
-    backgroundColor: "#1C73F0",
-    borderColor: "#DDEBFF",
-  },
-  markerDotInactive: {
-    backgroundColor: "#A7B1C4",
-    borderColor: "#EEF2F8",
   },
   drawerOverlay: {
     flex: 1,
