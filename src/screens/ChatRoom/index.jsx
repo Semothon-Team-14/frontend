@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
@@ -99,6 +99,20 @@ export function ChatRoom({ navigation, route }) {
 
     return `채팅방 #${chatRoom.id}`;
   }, [chatRoom, userId, usersById]);
+
+  const headerAvatar = useMemo(() => {
+    const participantIds = (chatRoom?.participantUserIds ?? []).filter((id) => Number(id) !== Number(userId));
+    if (participantIds.length > 1) {
+      return { type: "group" };
+    }
+
+    const otherUser = participantIds.length === 1 ? usersById[participantIds[0]] : null;
+    if (otherUser?.profileImageUrl) {
+      return { type: "image", imageUrl: otherUser.profileImageUrl };
+    }
+
+    return { type: "fallback" };
+  }, [chatRoom?.participantUserIds, userId, usersById]);
 
   const scrollToBottom = useCallback((animated = true) => {
     requestAnimationFrame(() => {
@@ -324,6 +338,15 @@ export function ChatRoom({ navigation, route }) {
         <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={22} color="#111827" />
         </Pressable>
+        <View style={styles.headerAvatarCircle}>
+          {headerAvatar.type === "image" ? (
+            <Image source={{ uri: headerAvatar.imageUrl }} style={styles.headerAvatarImage} />
+          ) : headerAvatar.type === "group" ? (
+            <Ionicons name="people" size={17} color="#1D4ED8" />
+          ) : (
+            <Ionicons name="person" size={17} color="#1D4ED8" />
+          )}
+        </View>
         <Text style={styles.headerTitle} numberOfLines={1}>{roomTitle}</Text>
         <Text style={[styles.socketState, socketReady ? styles.socketReady : styles.socketPending]}>
           {socketReady ? "LIVE" : "OFFLINE"}
@@ -419,6 +442,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#F3F4F6",
+  },
+  headerAvatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#EAF2FF",
+    borderWidth: 1,
+    borderColor: "#CFE0FF",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  headerAvatarImage: {
+    width: "100%",
+    height: "100%",
   },
   headerTitle: {
     flex: 1,

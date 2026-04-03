@@ -82,9 +82,71 @@ function ChipRow({ activeId, onSelect }) {
   );
 }
 
+function toCoordinateValue(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function isValidCoordinatePair(latitude, longitude) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return false;
+  }
+
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+    return false;
+  }
+
+  if (Math.abs(latitude) < 0.0001 && Math.abs(longitude) < 0.0001) {
+    return false;
+  }
+
+  return true;
+}
+
+function resolveCityCenter(city, placesByType) {
+  const cityLatitude = toCoordinateValue(city?.latitude ?? city?.lat);
+  const cityLongitude = toCoordinateValue(city?.longitude ?? city?.lng);
+  if (isValidCoordinatePair(cityLatitude, cityLongitude)) {
+    return { latitude: cityLatitude, longitude: cityLongitude };
+  }
+
+  const candidatePlaces = [
+    ...(placesByType?.restaurant ?? []),
+    ...(placesByType?.cafe ?? []),
+  ];
+  const placeWithCoordinate = candidatePlaces.find((place) => {
+    const latitude = toCoordinateValue(place?.latitude ?? place?.lat);
+    const longitude = toCoordinateValue(place?.longitude ?? place?.lng);
+    return isValidCoordinatePair(latitude, longitude);
+  });
+
+  if (!placeWithCoordinate) {
+    return null;
+  }
+
+  return {
+    latitude: toCoordinateValue(placeWithCoordinate?.latitude ?? placeWithCoordinate?.lat),
+    longitude: toCoordinateValue(placeWithCoordinate?.longitude ?? placeWithCoordinate?.lng),
+  };
+}
+
 export function MainScreen() {
   const navigation = useNavigation();
   const { token, logout } = useAuth();
+  const [currentTime, setCurrentTime] = useState("");
+
+  useFocusEffect(
+    useCallback(() => {
+      setCurrentTime(
+        new Date().toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }),
+      );
+    }, []),
+  );
+
   const [homeMode, setHomeMode] = useState(HOME_MODE_TRAVELER);
   const [activeChip, setActiveChip] = useState("restaurant");
   const [currentTrip, setCurrentTrip] = useState(null);
@@ -382,6 +444,10 @@ export function MainScreen() {
 
   const visiblePlaces = places.slice(0, 3);
   const quickMatchEnabled = Boolean(selectedCity?.id);
+  const nearbyCityCenter = useMemo(
+    () => resolveCityCenter(selectedCity, placesByType),
+    [placesByType, selectedCity],
+  );
   const localMarkers = useMemo(() => {
     return localMingleRows
       .map((row) => {
@@ -419,284 +485,309 @@ export function MainScreen() {
   }, [localMarkers]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.topIcons}>
-        <Pressable onPress={() => navigation.navigate("ProfileEdit")}>
-          <Person />
-        </Pressable>
-        <Pressable style={styles.logoutMiniButton} onPress={logout}>
-          <Text style={styles.logoutMiniButtonText}>로그아웃</Text>
-        </Pressable>
-        <Alarm />
-      </View>
+    <View style={styles.mainContainer}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.topIcons}>
+          <Alarm />
+          <Pressable onPress={() => navigation.navigate("ProfileEdit")}>
+            <Person />
+          </Pressable>
+          <Pressable style={styles.logoutMiniButton} onPress={logout}>
+            <Text style={styles.logoutMiniButtonText}>로그아웃</Text>
+          </Pressable>
+        </View>
 
-      <View style={styles.modeToggleRow}>
-        <Pressable
-          style={[
-            styles.modeToggleButton,
-            homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive,
-          ]}
-          onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
-        >
-          <Text
+        <View style={styles.modeToggleRow}>
+          <Pressable
             style={[
-              styles.modeToggleText,
-              homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive,
+              styles.modeToggleButton,
+              homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive,
             ]}
+            onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
           >
-            여행자
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[
-            styles.modeToggleButton,
-            homeMode === HOME_MODE_LOCAL && styles.modeToggleButtonActive,
-          ]}
-          onPress={() => setHomeMode(HOME_MODE_LOCAL)}
-        >
-          <Text
+            <Text
+              style={[
+                styles.modeToggleText,
+                homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive,
+              ]}
+            >
+              여행자
+            </Text>
+          </Pressable>
+          <Pressable
             style={[
-              styles.modeToggleText,
-              homeMode === HOME_MODE_LOCAL && styles.modeToggleTextActive,
+              styles.modeToggleButton,
+              homeMode === HOME_MODE_LOCAL && styles.modeToggleButtonActive,
             ]}
+            onPress={() => setHomeMode(HOME_MODE_LOCAL)}
           >
-            로컬
-          </Text>
-        </Pressable>
-      </View>
+            <Text
+              style={[
+                styles.modeToggleText,
+                homeMode === HOME_MODE_LOCAL && styles.modeToggleTextActive,
+              ]}
+            >
+              로컬
+            </Text>
+          </Pressable>
+        </View>
 
-      <View style={styles.locationSection}>
-        <View style={[styles.badge, !quickMatchEnabled && styles.badgeOff]}>
-          <Text style={styles.badgeText}>
-            {quickMatchEnabled ? "Now" : "Off"}
+        <View style={styles.locationSection}>
+          <View style={[styles.badge, !quickMatchEnabled && styles.badgeOff]}>
+            <Text style={styles.badgeText}>
+              {quickMatchEnabled ? "Now" : "Off"}
+            </Text>
+          </View>
+          <View style={styles.locationRow}>
+            <Text style={styles.locationKo}>
+              {selectedCity?.name || "어디로 떠나시나요?"}
+            </Text>
+            <Position width={18} height={18} />
+          </View>
+          <Text style={styles.locationEn}>
+            {selectedCity?.name || "Where is next?"}
           </Text>
         </View>
-        <View style={styles.locationRow}>
-          <Text style={styles.locationKo}>
-            {selectedCity?.name || "어디로 떠나시나요?"}
-          </Text>
-          <Position width={18} height={18} />
-        </View>
-        <Text style={styles.locationEn}>
-          {selectedCity?.name || "Where is next?"}
-        </Text>
-      </View>
 
-      {homeMode === HOME_MODE_TRAVELER ? (
-        <View style={styles.quickRow}>
-          <TouchableWithoutFeedback
-            onPress={() =>
-              navigation.navigate("Nearby", { cityId: selectedCity?.id })
-            }
-          >
-            <View style={styles.nearbyCard}>
-              <ImageBackground
-                source={require("../../images/nearbyCardImage.jpg")}
-                style={StyleSheet.absoluteFill}
-                imageStyle={{ borderRadius: 22 }}
-              />
-              <LinearGradient
-                colors={["rgba(1, 105, 254, 0.5)", "rgb(1, 105, 254)"]}
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.quickCardHeader}>
-                <Text style={styles.nearbyTitle}>근처 밍글러</Text>
-                <Direction width={18} height={18} />
-              </View>
-              <Text style={styles.nearbyBody}>
-                {currentTrip?.title
-                  ? `${currentTrip.title} 같이 하실 분`
-                  : "여행자를 만나보세요"}
-              </Text>
-            </View>
-          </TouchableWithoutFeedback>
-
-          <View style={styles.rightQuickStack}>
+        {homeMode === HOME_MODE_TRAVELER ? (
+          <View style={styles.quickRow}>
             <TouchableWithoutFeedback
               onPress={() =>
-                quickMatchEnabled &&
-                navigation.navigate("QuickMatch", { cityId: selectedCity?.id })
+                navigation.navigate("Nearby", {
+                  cityId: selectedCity?.id,
+                  cityName:
+                    selectedCity?.cityNameKorean ||
+                    selectedCity?.cityNameEnglish ||
+                    selectedCity?.name ||
+                    "",
+                  cityLatitude: nearbyCityCenter?.latitude ?? null,
+                  cityLongitude: nearbyCityCenter?.longitude ?? null,
+                })
               }
             >
-              <View
-                style={[
-                  styles.quickButtonCard,
-                  !quickMatchEnabled && styles.quickButtonCardDisabled,
-                ]}
-              >
-                <Quick />
-                <Text
-                  style={[
-                    styles.quickButtonText,
-                    !quickMatchEnabled && styles.quickButtonTextDisabled,
-                  ]}
-                >
-                  {quickMatchEnabled ? "빠른 매칭" : "지금은 사용할 수 없어요."}
+              <View style={styles.nearbyCard}>
+                <ImageBackground
+                  source={require("../../images/nearbyCardImage.jpg")}
+                  style={StyleSheet.absoluteFill}
+                  imageStyle={{ borderRadius: 22 }}
+                />
+                <LinearGradient
+                  colors={["rgba(1, 105, 254, 0.5)", "rgb(1, 105, 254)"]}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.quickCardHeader}>
+                  <Text style={styles.nearbyTitle}>근처 밍글러</Text>
+                  <Direction width={18} height={18} />
+                </View>
+                <Text style={styles.nearbyBody}>
+                  {currentTrip?.title
+                    ? `${currentTrip.title} 같이 하실 분`
+                    : "여행자를 만나보세요"}
                 </Text>
               </View>
             </TouchableWithoutFeedback>
-            <TouchableWithoutFeedback
-              onPress={() => navigation.navigate("Chats")}
-            >
-              <View style={styles.quickButtonCard}>
-                <View style={styles.communityIconWrap}>
-                  <Speech />
-                  <View style={styles.communityBadge}>
-                    <Text style={styles.communityBadgeText}>2</Text>
-                  </View>
-                </View>
-                <Text style={styles.quickButtonText}>로컬 커뮤니티</Text>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </View>
-      ) : null}
 
-      {homeMode === HOME_MODE_TRAVELER ? (
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>실시간 인기</Text>
-          <Text style={styles.sectionTime}>AM 9:00</Text>
-        </View>
-      ) : null}
-
-      {homeMode === HOME_MODE_TRAVELER ? (
-        <ChipRow activeId={activeChip} onSelect={setActiveChip} />
-      ) : null}
-
-      {homeMode === HOME_MODE_TRAVELER ? (
-        <View style={styles.popularPanel}>
-          {visiblePlaces.map((place, idx) => (
-            <Pressable key={place.id || idx} style={styles.placeCard}>
-              <ImageBackground
-                source={
-                  place.imageUrl
-                    ? { uri: place.imageUrl }
-                    : require("../../images/bookmarkBackground.png")
+            <View style={styles.rightQuickStack}>
+              <TouchableWithoutFeedback
+                onPress={() =>
+                  quickMatchEnabled &&
+                  navigation.navigate("QuickMatch", {
+                    cityId: selectedCity?.id,
+                  })
                 }
-                style={styles.placeImage}
-                imageStyle={styles.placeImageRadius}
               >
-                <View style={styles.rankBadge}>
-                  <Text style={styles.rankText}>{idx + 1}</Text>
-                </View>
-                <Pressable
-                  style={styles.bookmarkBtn}
-                  hitSlop={12}
-                  onPress={() => handleSave(place.id)}
+                <View
+                  style={[
+                    styles.quickButtonCard,
+                    !quickMatchEnabled && styles.quickButtonCardDisabled,
+                  ]}
                 >
-                  <Ionicons
-                    name={
-                      activePlaceType === "cafe"
-                        ? savedCafeByPlaceId[place.id]
-                          ? "bookmark"
-                          : "bookmark-outline"
-                        : savedRestaurantByPlaceId[place.id]
-                          ? "bookmark"
-                          : "bookmark-outline"
-                    }
-                    size={20}
-                    color="#ffffff"
-                  />
-                </Pressable>
-                <LinearGradient
-                  colors={["transparent", "rgba(0,0,0,0.75)"]}
-                  style={styles.placeGradient}
-                />
-                <View style={styles.placeFooter}>
-                  <View style={styles.placeTextCol}>
-                    <Text style={styles.placeNameKo}>{place.name || "-"}</Text>
-                    <Text style={styles.placeNameEn}>
-                      {place.address || "-"}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#ffffff" />
+                  <Quick />
+                  <Text
+                    style={[
+                      styles.quickButtonText,
+                      !quickMatchEnabled && styles.quickButtonTextDisabled,
+                    ]}
+                  >
+                    {quickMatchEnabled
+                      ? "빠른 매칭"
+                      : "지금은 사용할 수 없어요."}
+                  </Text>
                 </View>
-              </ImageBackground>
-            </Pressable>
-          ))}
-          {activePlaceType == null ? (
-            <Text style={styles.emptyText}>
-              해당 태그는 아직 준비 중입니다.
-            </Text>
-          ) : null}
-          {activePlaceType != null && placeLoading ? (
-            <View style={styles.pendingWrap}>
-              <ActivityIndicator size="small" color="#1C73F0" />
-              <Text style={styles.pendingText}>
-                {activePlaceType === "cafe"
-                  ? "카페를 불러오는 중..."
-                  : "식당을 불러오는 중..."}
+              </TouchableWithoutFeedback>
+              <TouchableWithoutFeedback
+                onPress={() => navigation.navigate("Chats")}
+              >
+                <View style={styles.quickButtonCard}>
+                  <View style={styles.communityIconWrap}>
+                    <Speech />
+                    <View style={styles.communityBadge}>
+                      <Text style={styles.communityBadgeText}>2</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.quickButtonText}>로컬 커뮤니티</Text>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </View>
+        ) : null}
+
+        {homeMode === HOME_MODE_TRAVELER ? (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>실시간 인기</Text>
+            <Text style={styles.sectionTime}>{currentTime}</Text>
+          </View>
+        ) : null}
+
+        {homeMode === HOME_MODE_TRAVELER ? (
+          <ChipRow activeId={activeChip} onSelect={setActiveChip} />
+        ) : null}
+
+        {homeMode === HOME_MODE_TRAVELER ? (
+          <View style={styles.popularPanel}>
+            {visiblePlaces.map((place, idx) => (
+              <Pressable key={place.id || idx} style={styles.placeCard}>
+                <ImageBackground
+                  source={
+                    place.imageUrl
+                      ? { uri: place.imageUrl }
+                      : require("../../images/bookmarkBackground.png")
+                  }
+                  style={styles.placeImage}
+                  imageStyle={styles.placeImageRadius}
+                >
+                  <View style={styles.rankBadge}>
+                    <Text style={styles.rankText}>{idx + 1}</Text>
+                  </View>
+                  <Pressable
+                    style={styles.bookmarkBtn}
+                    hitSlop={12}
+                    onPress={() => handleSave(place.id)}
+                  >
+                    <Ionicons
+                      name={
+                        activePlaceType === "cafe"
+                          ? savedCafeByPlaceId[place.id]
+                            ? "bookmark"
+                            : "bookmark-outline"
+                          : savedRestaurantByPlaceId[place.id]
+                            ? "bookmark"
+                            : "bookmark-outline"
+                      }
+                      size={20}
+                      color="#ffffff"
+                    />
+                  </Pressable>
+                  <LinearGradient
+                    colors={["transparent", "rgba(0,0,0,0.75)"]}
+                    style={styles.placeGradient}
+                  />
+                  <View style={styles.placeFooter}>
+                    <View style={styles.placeTextCol}>
+                      <Text style={styles.placeNameKo}>
+                        {place.name || "-"}
+                      </Text>
+                      <Text style={styles.placeNameEn}>
+                        {place.address || "-"}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color="#ffffff"
+                    />
+                  </View>
+                </ImageBackground>
+              </Pressable>
+            ))}
+            {activePlaceType == null ? (
+              <Text style={styles.emptyText}>
+                해당 태그는 아직 준비 중입니다.
+              </Text>
+            ) : null}
+            {activePlaceType != null && placeLoading ? (
+              <View style={styles.pendingWrap}>
+                <ActivityIndicator size="small" color="#1C73F0" />
+                <Text style={styles.pendingText}>
+                  {activePlaceType === "cafe"
+                    ? "카페를 불러오는 중..."
+                    : "식당을 불러오는 중..."}
+                </Text>
+              </View>
+            ) : null}
+            {activePlaceType != null && !placeLoading && placeError ? (
+              <Text style={styles.emptyText}>{placeError}</Text>
+            ) : null}
+            {activePlaceType != null &&
+            !placeLoading &&
+            !placeError &&
+            visiblePlaces.length === 0 ? (
+              <Text style={styles.emptyText}>표시할 장소가 없습니다.</Text>
+            ) : null}
+
+            <View style={styles.moreRow}>
+              <Text style={styles.moreText}>더보기</Text>
+              <Ionicons name="chevron-forward" size={14} color="#818181" />
+            </View>
+          </View>
+        ) : null}
+
+        {homeMode === HOME_MODE_LOCAL ? (
+          <View style={styles.localMapPanel}>
+            <View style={styles.localMapHeader}>
+              <Text style={styles.localMapTitle}>현재 밍글 지도</Text>
+              <Text style={styles.localMapSubtitle}>
+                {selectedCity?.name || "도시를 설정해주세요."}
               </Text>
             </View>
-          ) : null}
-          {activePlaceType != null && !placeLoading && placeError ? (
-            <Text style={styles.emptyText}>{placeError}</Text>
-          ) : null}
-          {activePlaceType != null &&
-          !placeLoading &&
-          !placeError &&
-          visiblePlaces.length === 0 ? (
-            <Text style={styles.emptyText}>표시할 장소가 없습니다.</Text>
-          ) : null}
-
-          <Pressable style={styles.floatingPlusButton} onPress={loadHome}>
-            <Ionicons name="add" size={30} color="#fff" />
-          </Pressable>
-
-          <View style={styles.moreRow}>
-            <Text style={styles.moreText}>더보기</Text>
-            <Ionicons name="chevron-forward" size={14} color="#818181" />
+            {localMingleLoading ? (
+              <View style={styles.pendingWrap}>
+                <ActivityIndicator size="small" color="#1C73F0" />
+                <Text style={styles.pendingText}>밍글을 불러오는 중...</Text>
+              </View>
+            ) : null}
+            {localMingleError ? (
+              <Text style={styles.emptyText}>{localMingleError}</Text>
+            ) : null}
+            {!localMingleLoading && !localMingleError ? (
+              <MapView
+                key={`local-map-${selectedCity?.id || "default"}`}
+                style={styles.localMap}
+                region={localMapRegion}
+              >
+                {localMarkers.map((marker) => (
+                  <Marker
+                    key={marker.id}
+                    coordinate={marker.coordinate}
+                    title={marker.title}
+                    description={`참여 ${marker.minglerCount}명`}
+                  />
+                ))}
+              </MapView>
+            ) : null}
+            {!localMingleLoading &&
+            !localMingleError &&
+            localMarkers.length === 0 ? (
+              <Text style={styles.localMapEmptyText}>
+                표시할 밍글 좌표가 없습니다.
+              </Text>
+            ) : null}
           </View>
-        </View>
-      ) : null}
-
-      {homeMode === HOME_MODE_LOCAL ? (
-        <View style={styles.localMapPanel}>
-          <View style={styles.localMapHeader}>
-            <Text style={styles.localMapTitle}>현재 밍글 지도</Text>
-            <Text style={styles.localMapSubtitle}>
-              {selectedCity?.name || "도시를 설정해주세요."}
-            </Text>
-          </View>
-          {localMingleLoading ? (
-            <View style={styles.pendingWrap}>
-              <ActivityIndicator size="small" color="#1C73F0" />
-              <Text style={styles.pendingText}>밍글을 불러오는 중...</Text>
-            </View>
-          ) : null}
-          {localMingleError ? (
-            <Text style={styles.emptyText}>{localMingleError}</Text>
-          ) : null}
-          {!localMingleLoading && !localMingleError ? (
-            <MapView
-              key={`local-map-${selectedCity?.id || "default"}`}
-              style={styles.localMap}
-              region={localMapRegion}
-            >
-              {localMarkers.map((marker) => (
-                <Marker
-                  key={marker.id}
-                  coordinate={marker.coordinate}
-                  title={marker.title}
-                  description={`참여 ${marker.minglerCount}명`}
-                />
-              ))}
-            </MapView>
-          ) : null}
-          {!localMingleLoading &&
-          !localMingleError &&
-          localMarkers.length === 0 ? (
-            <Text style={styles.localMapEmptyText}>
-              표시할 밍글 좌표가 없습니다.
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
-    </ScrollView>
+        ) : null}
+      </ScrollView>
+      <View style={styles.floatingButtonContainer}>
+        <Pressable style={styles.floatingPlusButton} onPress={loadHome}>
+          <Ionicons name="add" size={30} color="#fff" />
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+  },
   container: {
     paddingHorizontal: 20,
     paddingTop: 52,
@@ -839,18 +930,18 @@ const styles = StyleSheet.create({
   },
   communityBadge: {
     position: "absolute",
-    right: -14,
-    top: -7,
+    right: -125,
+    top: -18,
     backgroundColor: "#1C73F0",
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   communityBadgeText: {
     color: "#fff",
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: "700",
   },
   sectionHeader: {
@@ -981,10 +1072,12 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.9)",
     fontSize: 11,
   },
-  floatingPlusButton: {
+  floatingButtonContainer: {
     position: "absolute",
-    right: -12,
-    top: 177,
+    bottom: 20,
+    right: 20,
+  },
+  floatingPlusButton: {
     width: 52,
     height: 52,
     borderRadius: 26,

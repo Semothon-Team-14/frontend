@@ -12,6 +12,18 @@ export function fetchMingleMinglers(mingleId) {
   return get(`/mingles/${mingleId}/minglers`);
 }
 
+export function createMingle({ cityId, title, description = null, placeName = null, meetDateTime = null, latitude = null, longitude = null }) {
+  return post('/mingles', {
+    cityId,
+    title,
+    description,
+    placeName,
+    meetDateTime,
+    latitude,
+    longitude,
+  });
+}
+
 export function joinMingle(mingleId) {
   return post(`/mingles/${mingleId}/minglers`);
 }

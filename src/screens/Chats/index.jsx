@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth";
@@ -62,6 +62,21 @@ export function Chats({ navigation, route }) {
     }
 
     return `채팅방 #${room?.id}`;
+  }, [userId, usersById]);
+
+  const roomAvatarData = useCallback((room) => {
+    const participantIds = (room?.participantUserIds ?? []).filter((id) => Number(id) !== Number(userId));
+    if (participantIds.length > 1) {
+      return { type: "group" };
+    }
+
+    const otherUserId = participantIds[0];
+    const otherUser = otherUserId ? usersById[otherUserId] : null;
+    if (otherUser?.profileImageUrl) {
+      return { type: "image", imageUrl: otherUser.profileImageUrl };
+    }
+
+    return { type: "fallback" };
   }, [userId, usersById]);
 
   const loadRooms = useCallback(async () => {
@@ -146,13 +161,20 @@ export function Chats({ navigation, route }) {
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => {
           const title = roomListLabel(item);
+          const avatar = roomAvatarData(item);
           return (
             <Pressable
               style={styles.roomItem}
               onPress={() => navigation.navigate("ChatRoom", { chatRoomId: item.id })}
             >
               <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>{String(title || "?").slice(0, 1).toUpperCase()}</Text>
+                {avatar.type === "image" ? (
+                  <Image source={{ uri: avatar.imageUrl }} style={styles.avatarImage} />
+                ) : avatar.type === "group" ? (
+                  <Ionicons name="people" size={18} color="#1D4ED8" />
+                ) : (
+                  <Ionicons name="person" size={18} color="#1D4ED8" />
+                )}
               </View>
 
               <View style={styles.roomMain}>
@@ -265,6 +287,10 @@ const styles = StyleSheet.create({
     color: "#1D4ED8",
     fontSize: 16,
     fontWeight: "700",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   roomMain: {
     flex: 1,

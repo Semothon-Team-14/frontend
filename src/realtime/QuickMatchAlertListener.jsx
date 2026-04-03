@@ -269,18 +269,30 @@ export function QuickMatchAlertListener() {
 
       if (event?.eventType === "QUICK_MATCH_ACCEPTED") {
         const quickMatchId = toNumberOrNull(event?.quickMatch?.id);
+        const acceptedChatRoomId = toNumberOrNull(event?.chatRoom?.id);
         const acceptedMingleId = toNumberOrNull(event?.quickMatch?.mingleId);
         const alreadyHandled = quickMatchId ? handledAcceptedQuickMatchesRef.current.has(quickMatchId) : false;
-        if (quickMatchId && acceptedMingleId && !alreadyHandled) {
+        if (quickMatchId && !alreadyHandled) {
           handledAcceptedQuickMatchesRef.current.add(quickMatchId);
           try {
-            const joined = await joinMingleChatRoom(acceptedMingleId);
-            const chatRoomId = toNumberOrNull(joined?.chatRoom?.id);
-            if (chatRoomId && navigationRef.isReady()) {
+            if (acceptedChatRoomId && navigationRef.isReady()) {
               navigationRef.navigate("Tabs", {
                 screen: "Chats",
-                params: { chatRoomId },
+                params: { chatRoomId: acceptedChatRoomId },
               });
+            } else if (acceptedMingleId) {
+              const joined = await joinMingleChatRoom(acceptedMingleId);
+              const chatRoomId = toNumberOrNull(joined?.chatRoom?.id);
+              if (chatRoomId && navigationRef.isReady()) {
+                navigationRef.navigate("Tabs", {
+                  screen: "Chats",
+                  params: { chatRoomId },
+                });
+              } else if (navigationRef.isReady()) {
+                navigationRef.navigate("Tabs", {
+                  screen: "Chats",
+                });
+              }
             } else if (navigationRef.isReady()) {
               navigationRef.navigate("Tabs", {
                 screen: "Chats",
