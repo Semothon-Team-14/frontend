@@ -5,7 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
-import { fetchChatRooms, fetchUsers } from "../../services";
+import { fetchChatRooms, fetchLocals, fetchUsers } from "../../services";
 
 const TAB_LOCAL = "LOCAL";
 const TAB_TRAVELER = "TRAVELER";
@@ -56,15 +56,31 @@ export function Chats({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState(TAB_LOCAL);
+  const [localUserIdSet, setLocalUserIdSet] = useState(new Set());
   const handledAutoOpenRef = useRef(new Set());
 
+  const roomTabTypeById = useMemo(() => {
+    const mapping = {};
+    rooms.forEach((room) => {
+      const participantIds = (room?.participantUserIds ?? []).filter(
+        (participantId) => Number(participantId) !== Number(userId),
+      );
+      if (participantIds.length === 1 && localUserIdSet.has(Number(participantIds[0]))) {
+        mapping[room.id] = TAB_LOCAL;
+        return;
+      }
+      mapping[room.id] = TAB_TRAVELER;
+    });
+    return mapping;
+  }, [localUserIdSet, rooms, userId]);
+
   const localRooms = useMemo(
-    () => rooms.filter((room) => room?.directChat),
-    [rooms],
+    () => rooms.filter((room) => roomTabTypeById[room?.id] === TAB_LOCAL),
+    [roomTabTypeById, rooms],
   );
   const travelerRooms = useMemo(
-    () => rooms.filter((room) => !room?.directChat),
-    [rooms],
+    () => rooms.filter((room) => roomTabTypeById[room?.id] !== TAB_LOCAL),
+    [roomTabTypeById, rooms],
   );
   const visibleRooms = activeTab === TAB_LOCAL ? localRooms : travelerRooms;
 
@@ -113,12 +129,18 @@ export function Chats({ navigation, route }) {
     setError(null);
 
     try {
-      const [roomResponse, usersResponse] = await Promise.all([
+      const [roomResponse, usersResponse, localsResponse] = await Promise.all([
         fetchChatRooms(),
         fetchUsers(),
+        fetchLocals(),
       ]);
       const loadedRooms = roomResponse?.chatRooms ?? [];
       const loadedUsers = usersResponse?.users ?? [];
+      const localIds = new Set(
+        (localsResponse?.locals ?? [])
+          .map((entry) => Number(entry?.userId || 0))
+          .filter((id) => Number.isFinite(id) && id > 0),
+      );
       const userMap = loadedUsers.reduce((acc, user) => {
         acc[user.id] = user;
         return acc;
@@ -126,9 +148,11 @@ export function Chats({ navigation, route }) {
 
       setUsersById(userMap);
       setRooms(loadedRooms);
+      setLocalUserIdSet(localIds);
     } catch (requestError) {
       setRooms([]);
       setUsersById({});
+      setLocalUserIdSet(new Set());
       setError(requestError?.message || tx("채팅방을 불러오지 못했습니다.", "Failed to load chat rooms."));
     } finally {
       setLoading(false);
