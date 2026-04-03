@@ -430,6 +430,13 @@ export function ChatRoom({ navigation, route }) {
           const mine = item.senderUserId === userId;
           const isPending = Boolean(item.pending);
           const isFailed = item.status === "failed";
+          const hasTranslatedPair =
+            Boolean(item.translatedContent) &&
+            item.translatedContent !== item.content;
+
+          const primaryText = hasTranslatedPair
+            ? item.translatedContent
+            : item.content;
           return (
             <View style={[styles.messageRow, mine && styles.messageRowMine]}>
               <View
@@ -438,21 +445,65 @@ export function ChatRoom({ navigation, route }) {
                   mine ? styles.bubbleMine : styles.bubbleOther,
                 ]}
               >
-                <Text
-                  style={[styles.messageText, mine && styles.messageTextMine]}
+                <View
+                  style={[
+                    styles.messageBlock,
+                    mine
+                      ? styles.messageBlockTranslatedMine
+                      : styles.messageBlockTranslatedOther,
+                  ]}
                 >
-                  {item.translatedContent || item.content}
-                </Text>
-                {item.translatedContent &&
-                item.translatedContent !== item.content ? (
+                  {hasTranslatedPair ? (
+                    <Text
+                      style={[
+                        styles.messageLabel,
+                        mine
+                          ? styles.messageLabelTranslatedMine
+                          : styles.messageLabelTranslatedOther,
+                      ]}
+                    >
+                      번역
+                    </Text>
+                  ) : null}
                   <Text
                     style={[
-                      styles.messageOriginalText,
-                      mine && styles.messageOriginalTextMine,
+                      styles.messageText,
+                      mine
+                        ? styles.messageTextTranslatedMine
+                        : styles.messageTextTranslatedOther,
                     ]}
                   >
-                    {item.content}
+                    {primaryText}
                   </Text>
+                </View>
+                {hasTranslatedPair ? (
+                  <View
+                    style={[
+                      styles.messageBlock,
+                      mine
+                        ? styles.messageBlockOriginalMine
+                        : styles.messageBlockOriginalOther,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.messageLabel,
+                        mine
+                          ? styles.messageLabelOriginalMine
+                          : styles.messageLabelOriginalOther,
+                      ]}
+                    >
+                      원문
+                    </Text>
+                    <Text
+                      style={[
+                        styles.messageOriginalText,
+                        mine && styles.messageOriginalTextMine,
+                      ]}
+                    >
+                      {item.content}
+                    </Text>
+                  </View>
                 ) : null}
                 {mine && isPending ? (
                   <View style={styles.pendingRow}>
@@ -596,9 +647,9 @@ const styles = StyleSheet.create({
   bubble: {
     maxWidth: "84%",
     borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    gap: 6,
   },
   bubbleOther: {
     backgroundColor: "#F1F5F9",
@@ -609,20 +660,60 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 4,
   },
   messageText: {
-    color: "#0F172A",
     fontSize: 14,
     lineHeight: 19,
   },
-  messageTextMine: {
-    color: "#FFFFFF",
+  messageTextTranslatedOther: {
+    color: "#0F172A",
+  },
+  messageTextTranslatedMine: {
+    color: "#EFF6FF",
+  },
+  messageBlock: {
+    borderRadius: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    gap: 2,
+  },
+  messageBlockTranslatedOther: {
+    backgroundColor: "#EEF4FF",
+  },
+  messageBlockTranslatedMine: {
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  messageBlockOriginalOther: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  messageBlockOriginalMine: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  messageLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  messageLabelTranslatedOther: {
+    color: "#2458C8",
+  },
+  messageLabelTranslatedMine: {
+    color: "#DBEAFE",
+  },
+  messageLabelOriginalOther: {
+    color: "#64748B",
+  },
+  messageLabelOriginalMine: {
+    color: "#BFDBFE",
   },
   messageOriginalText: {
-    color: "#64748B",
     fontSize: 12,
     lineHeight: 17,
+    color: "#475569",
   },
   messageOriginalTextMine: {
-    color: "#DBEAFE",
+    color: "#CFE2FF",
   },
   pendingRow: {
     flexDirection: "row",
