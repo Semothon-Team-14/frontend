@@ -35,6 +35,14 @@ function getEventMessage(eventType) {
   return "빠른 매칭 알림이 도착했습니다.";
 }
 
+function isAlreadyAcceptedError(event) {
+  if (event?.eventType !== "QUICK_MATCH_ERROR" || event?.action !== "QUICK_MATCH_ACCEPT") {
+    return false;
+  }
+  const reason = String(event?.reason || "").toLowerCase();
+  return reason.includes("already resolved") && reason.includes("accepted");
+}
+
 function unsubscribeAllCitySubscriptions(containerRef) {
   const container = containerRef?.current;
   if (!container) {
@@ -290,6 +298,20 @@ export function QuickMatchAlertListener() {
       }
 
       if (eventType === "QUICK_MATCH_ERROR") {
+        if (isAlreadyAcceptedError(event)) {
+          setIncomingQuickMatch(null);
+          setIncomingActionLoading(false);
+          if (pendingAcceptedQuickMatchId) {
+            setPendingAcceptedQuickMatchId(null);
+          }
+          if (navigationRef.isReady()) {
+            navigationRef.navigate("Tabs", {
+              screen: "Chats",
+            });
+          }
+          showInAppBanner("빠른 매칭이 이미 수락되어 채팅으로 이동합니다.");
+          return;
+        }
         if (pendingAcceptedQuickMatchId && event?.action === "QUICK_MATCH_ACCEPT") {
           setPendingAcceptedQuickMatchId(null);
         }
