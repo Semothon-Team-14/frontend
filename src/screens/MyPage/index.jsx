@@ -85,27 +85,6 @@ export function MyPage({ navigation }) {
     }).length;
   }, [trips]);
 
-  const totalUniqueMinglerCount = useMemo(() => {
-    const uniqueIds = new Set();
-    directChatRoomsByRecent.forEach((room) => {
-      (room?.participantUserIds ?? []).forEach((participantId) => {
-        const safeUserId = Number(participantId || 0);
-        if (safeUserId > 0 && safeUserId !== Number(userId)) {
-          uniqueIds.add(safeUserId);
-        }
-      });
-    });
-    Object.values(mingleCompanionUserIdsByCity).forEach((ids) => {
-      (ids ?? []).forEach((id) => {
-        const safeUserId = Number(id || 0);
-        if (safeUserId > 0 && safeUserId !== Number(userId)) {
-          uniqueIds.add(safeUserId);
-        }
-      });
-    });
-    return uniqueIds.size;
-  }, [directChatRoomsByRecent, mingleCompanionUserIdsByCity, userId]);
-
   const mingleDaysInCurrentArea = useMemo(() => {
     const currentTrip = pickCurrentTrip(trips);
     if (!currentTrip?.startDate) {
@@ -133,6 +112,27 @@ export function MyPage({ navigation }) {
       .filter((room) => Boolean(room?.directChat))
       .sort((a, b) => String(b?.updatedDateTime || "").localeCompare(String(a?.updatedDateTime || "")));
   }, [chatRooms]);
+
+  const totalUniqueMinglerCount = useMemo(() => {
+    const uniqueIds = new Set();
+    directChatRoomsByRecent.forEach((room) => {
+      (room?.participantUserIds ?? []).forEach((participantId) => {
+        const safeUserId = Number(participantId || 0);
+        if (safeUserId > 0 && safeUserId !== Number(userId)) {
+          uniqueIds.add(safeUserId);
+        }
+      });
+    });
+    Object.values(mingleCompanionUserIdsByCity).forEach((ids) => {
+      (ids ?? []).forEach((id) => {
+        const safeUserId = Number(id || 0);
+        if (safeUserId > 0 && safeUserId !== Number(userId)) {
+          uniqueIds.add(safeUserId);
+        }
+      });
+    });
+    return uniqueIds.size;
+  }, [directChatRoomsByRecent, mingleCompanionUserIdsByCity, userId]);
 
   const loadMyPage = useCallback(async () => {
     try {
