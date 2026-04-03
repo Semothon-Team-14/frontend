@@ -4,6 +4,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -57,6 +58,7 @@ export function ProfileEdit({ navigation }) {
   const { token, logout } = useAuth();
   const { tx, isKorean } = useLocale();
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
+
   const [nationalities, setNationalities] = useState([]);
   const [form, setForm] = useState({
     name: "",
@@ -86,6 +88,7 @@ export function ProfileEdit({ navigation }) {
           fetchNationalities(),
           fetchLocals(),
         ]);
+
         const user = userResponse?.user;
         const loadedNationalities = nationalityResponse?.nationalities ?? [];
         const latestLocal = (localsResponse?.locals ?? [])[0] || null;
@@ -154,11 +157,13 @@ export function ProfileEdit({ navigation }) {
         profileImageUrl: form.profileImageUrl?.trim() || null,
         nationalityId: selectedNationality?.id || null,
       });
-      if (Number(localId) > 0) {
+
+      if (selectedHomeMode === HOME_MODE_LOCAL && Number(localId) > 0) {
         await updateLocal(localId, {
           availableTimeText: availableTimeText.trim() || null,
         });
       }
+
       navigation.goBack();
     } catch (requestError) {
       setError(requestError?.message || tx("프로필 저장에 실패했습니다.", "Failed to save profile."));
@@ -230,11 +235,10 @@ export function ProfileEdit({ navigation }) {
     await pickAndUploadProfileImage("camera");
   }
 
+  const localMode = selectedHomeMode === HOME_MODE_LOCAL;
+
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-    >
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color="#111" />
@@ -243,16 +247,28 @@ export function ProfileEdit({ navigation }) {
         <View style={{ width: 24 }} />
       </View>
 
+      <View style={styles.modeBar}>
+        <Text style={styles.modeBarTitle}>{localMode ? tx("로컬로 전환", "Local Mode") : tx("여행자로 전환", "Traveler Mode")}</Text>
+        <Switch
+          value={localMode}
+          onValueChange={(nextValue) => {
+            const nextMode = nextValue ? HOME_MODE_LOCAL : HOME_MODE_TRAVELER;
+            setSelectedHomeMode(nextMode);
+            setCurrentHomeMode(nextMode);
+          }}
+          trackColor={{ false: "#6B7380", true: "#3E65FF" }}
+          thumbColor="#FFFFFF"
+        />
+      </View>
+
       <View style={styles.formCard}>
+        <Text style={styles.sectionTitle}>{localMode ? tx("로컬 프로필", "Local Profile") : tx("여행자 프로필", "Traveler Profile")}</Text>
+
         <Text style={styles.label}>{tx("프로필 이미지", "Profile Image")}</Text>
         <View style={styles.profileImageRow}>
           <View style={styles.profileImagePreview}>
             {form.profileImageUrl ? (
-              <Image
-                source={{ uri: form.profileImageUrl }}
-                style={styles.profileImage}
-                resizeMode="cover"
-              />
+              <Image source={{ uri: form.profileImageUrl }} style={styles.profileImage} resizeMode="cover" />
             ) : (
               <Ionicons
                 name="person-circle"
@@ -327,34 +343,18 @@ export function ProfileEdit({ navigation }) {
         <Text style={styles.label}>{tx("성별", "Gender")}</Text>
         <View style={styles.sexRow}>
           <Pressable
-            style={[
-              styles.sexButton,
-              form.sex === "MALE" && styles.sexButtonActive,
-            ]}
+            style={[styles.sexButton, form.sex === "MALE" && styles.sexButtonActive]}
             onPress={() => updateField("sex", "MALE")}
           >
-            <Text
-              style={[
-                styles.sexText,
-                form.sex === "MALE" && styles.sexTextActive,
-              ]}
-            >
+            <Text style={[styles.sexText, form.sex === "MALE" && styles.sexTextActive]}>
               {tx("남자", "Male")}
             </Text>
           </Pressable>
           <Pressable
-            style={[
-              styles.sexButton,
-              form.sex === "FEMALE" && styles.sexButtonActive,
-            ]}
+            style={[styles.sexButton, form.sex === "FEMALE" && styles.sexButtonActive]}
             onPress={() => updateField("sex", "FEMALE")}
           >
-            <Text
-              style={[
-                styles.sexText,
-                form.sex === "FEMALE" && styles.sexTextActive,
-              ]}
-            >
+            <Text style={[styles.sexText, form.sex === "FEMALE" && styles.sexTextActive]}>
               {tx("여자", "Female")}
             </Text>
           </Pressable>
@@ -368,80 +368,51 @@ export function ProfileEdit({ navigation }) {
           multiline
           placeholder={tx("자기소개를 입력하세요", "Write a short introduction")}
         />
-
-        <Text style={styles.label}>{tx("홈 화면 모드", "Home Screen Mode")}</Text>
-        <View style={styles.homeModeToggleRow}>
-          <Pressable
-            style={[
-              styles.homeModeToggleButton,
-              selectedHomeMode === HOME_MODE_TRAVELER &&
-                styles.homeModeToggleButtonActive,
-            ]}
-            onPress={() => {
-              setSelectedHomeMode(HOME_MODE_TRAVELER);
-              setCurrentHomeMode(HOME_MODE_TRAVELER);
-            }}
-          >
-            <Text
-              style={[
-                styles.homeModeToggleText,
-                selectedHomeMode === HOME_MODE_TRAVELER &&
-                  styles.homeModeToggleTextActive,
-              ]}
-            >
-              {tx("여행자", "Traveler")}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.homeModeToggleButton,
-              selectedHomeMode === HOME_MODE_LOCAL &&
-                styles.homeModeToggleButtonActive,
-            ]}
-            onPress={() => {
-              setSelectedHomeMode(HOME_MODE_LOCAL);
-              setCurrentHomeMode(HOME_MODE_LOCAL);
-            }}
-          >
-            <Text
-              style={[
-                styles.homeModeToggleText,
-                selectedHomeMode === HOME_MODE_LOCAL &&
-                  styles.homeModeToggleTextActive,
-              ]}
-            >
-              {tx("로컬", "Local")}
-            </Text>
-          </Pressable>
-        </View>
-
-        {Number(localId) > 0 ? (
-          <>
-            <Text style={styles.label}>{tx("가능 시간", "Available Time")}</Text>
-            <TextInput
-              style={styles.input}
-              value={availableTimeText}
-              onChangeText={setAvailableTimeText}
-              placeholder={tx("예: 토 · 09:30 ~ 21:40", "e.g. Sat · 09:30 ~ 21:40")}
-            />
-          </>
-        ) : null}
-
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        <Pressable
-          style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={loading}
-        >
-          <Text style={styles.saveButtonText}>
-            {loading ? tx("저장 중...", "Saving...") : tx("저장", "Save")}
-          </Text>
-        </Pressable>
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>{tx("로그아웃", "Logout")}</Text>
-        </Pressable>
       </View>
+
+      {localMode ? (
+        <View style={styles.localCard}>
+          <Text style={styles.sectionTitle}>{tx("로컬 설정", "Local Settings")}</Text>
+          {Number(localId) > 0 ? (
+            <>
+              <Text style={styles.label}>{tx("가능 시간", "Available Time")}</Text>
+              <TextInput
+                style={styles.input}
+                value={availableTimeText}
+                onChangeText={setAvailableTimeText}
+                placeholder={tx("예: 토 · 09:30 ~ 21:40", "e.g. Sat · 09:30 ~ 21:40")}
+              />
+            </>
+          ) : (
+            <Text style={styles.helperText}>
+              {tx("로컬 설정이 아직 없습니다. 지역을 설정하면 로컬 시간을 입력할 수 있어요.", "Local profile is not set yet. Set your area to enable available-time settings.")}
+            </Text>
+          )}
+        </View>
+      ) : (
+        <View style={styles.travelerCard}>
+          <Text style={styles.sectionTitle}>{tx("여행자 모드", "Traveler Mode")}</Text>
+          <Text style={styles.helperText}>
+            {tx("여행자 모드에서는 로컬 가능 시간 설정이 숨겨집니다.", "Local available-time settings are hidden in traveler mode.")}
+          </Text>
+        </View>
+      )}
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <Pressable
+        style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+        onPress={handleSave}
+        disabled={loading}
+      >
+        <Text style={styles.saveButtonText}>
+          {loading ? tx("저장 중...", "Saving...") : tx("저장", "Save")}
+        </Text>
+      </Pressable>
+
+      <Pressable style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutButtonText}>{tx("로그아웃", "Logout")}</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -453,7 +424,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 52,
     paddingBottom: 24,
-    gap: 10,
+    gap: 12,
   },
   header: {
     flexDirection: "row",
@@ -465,16 +436,57 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111",
   },
+  modeBar: {
+    backgroundColor: "#27324A",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  modeBarTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   formCard: {
     backgroundColor: "#FFF",
     borderRadius: 14,
     padding: 14,
     gap: 8,
   },
+  localCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#E4ECFF",
+  },
+  travelerCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#E7E7EA",
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#151515",
+    marginBottom: 2,
+  },
   label: {
     fontSize: 13,
     fontWeight: "600",
     color: "#666",
+  },
+  helperText: {
+    color: "#6D7482",
+    fontSize: 13,
+    lineHeight: 18,
   },
   input: {
     borderWidth: 1,
@@ -527,31 +539,6 @@ const styles = StyleSheet.create({
     gap: 8,
     flexDirection: "row",
   },
-  homeModeToggleRow: {
-    flexDirection: "row",
-    backgroundColor: "#E8ECF3",
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  homeModeToggleButton: {
-    flex: 1,
-    height: 34,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  homeModeToggleButtonActive: {
-    backgroundColor: "#FFFFFF",
-  },
-  homeModeToggleText: {
-    color: "#6B7280",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  homeModeToggleTextActive: {
-    color: "#1C73F0",
-  },
   textArea: {
     minHeight: 70,
     textAlignVertical: "top",
@@ -586,11 +573,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   saveButton: {
-    marginTop: 4,
+    marginTop: 2,
     backgroundColor: "#0169FE",
     borderRadius: 10,
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   saveButtonDisabled: {
     opacity: 0.6,
