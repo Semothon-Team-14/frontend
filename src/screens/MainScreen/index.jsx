@@ -1028,8 +1028,20 @@ export function MainScreen() {
                       style={styles.nearbyMinglerOptionImage}
                       imageStyle={styles.nearbyMinglerOptionImageStyle}
                     >
-                      <View style={styles.nearbyMinglerOptionOverlay} />
-                      <Text style={styles.nearbyMinglerOptionLabel}>
+                      <View
+                        style={[
+                          styles.nearbyMinglerOptionOverlay,
+                          selected
+                            ? styles.nearbyMinglerOptionOverlaySelected
+                            : styles.nearbyMinglerOptionOverlayUnselected,
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.nearbyMinglerOptionLabel,
+                          selected && styles.nearbyMinglerOptionLabelSelected,
+                        ]}
+                      >
                         {tx(option.labelKo, option.labelEn)}
                       </Text>
                     </ImageBackground>
@@ -1496,7 +1508,12 @@ const styles = StyleSheet.create({
   },
   nearbyMinglerOptionOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(241, 245, 249, 0.74)",
+  },
+  nearbyMinglerOptionOverlayUnselected: {
+    backgroundColor: "rgba(241, 245, 249, 0.78)",
+  },
+  nearbyMinglerOptionOverlaySelected: {
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
   },
   nearbyMinglerOptionLabel: {
     color: "#9AA3B2",
@@ -1504,11 +1521,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     zIndex: 1,
   },
+  nearbyMinglerOptionLabelSelected: {
+    color: "#FFFFFF",
+  },
   nearbyMinglerConfirmButton: {
     marginTop: 18,
     height: 58,
     borderRadius: 29,
-    backgroundColor: "#B8BEC9",
+    backgroundColor: "#1C73F0",
     alignItems: "center",
     justifyContent: "center",
   },
