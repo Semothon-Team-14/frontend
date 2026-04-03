@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../auth";
 import { decodeUserIdFromToken } from "../auth/userId";
-import { acceptQuickMatch, declineQuickMatch, fetchLocals, fetchTrips } from "../services";
+import { acceptQuickMatch, declineQuickMatch, fetchLocals, fetchQuickMatch, fetchTrips } from "../services";
 import { navigationRef } from "../navigation/navigationRef";
 import { joinMingleChatRoom } from "../services/chatService";
 import {
@@ -157,8 +157,10 @@ export function QuickMatchAlertListener() {
     }
 
     setIncomingActionLoading(true);
+    setPendingAcceptedQuickMatchId(quickMatchId);
     resolvedQuickMatchIdsRef.current.add(quickMatchId);
     try {
+      let acceptedResult = null;
       if (clientRef.current?.connected) {
         try {
           await publishAcceptQuickMatch(clientRef.current, quickMatchId);
@@ -166,23 +168,57 @@ export function QuickMatchAlertListener() {
           if (!isWebSocketReceiptTimeout(publishError)) {
             throw publishError;
           }
-          await acceptQuickMatch(quickMatchId);
+          acceptedResult = await acceptQuickMatch(quickMatchId);
         }
       } else {
-        await acceptQuickMatch(quickMatchId);
+        acceptedResult = await acceptQuickMatch(quickMatchId);
       }
-      setPendingAcceptedQuickMatchId(quickMatchId);
       setIncomingQuickMatch(null);
+      const acceptedChatRoomId = toNumberOrNull(acceptedResult?.result?.chatRoom?.id);
+      if (acceptedChatRoomId && navigationRef.isReady()) {
+        navigationRef.navigate("Tabs", {
+          screen: "Chats",
+          params: { chatRoomId: acceptedChatRoomId },
+        });
+      }
       showInAppBanner("빠른 매칭 수락 요청을 보냈어요.");
     } catch (error) {
       if (
         String(error?.message || "").toLowerCase().includes("already resolved") &&
         String(error?.message || "").toLowerCase().includes("accepted")
       ) {
-        Alert.alert(
-          "빠른 매칭 안내",
-          "다른 밍글러가 먼저 수락했어요.",
-        );
+        try {
+          const detail = await fetchQuickMatch(quickMatchId);
+          const acceptedByUserId = toNumberOrNull(detail?.quickMatch?.acceptedByUserId);
+          if (acceptedByUserId && acceptedByUserId === userId) {
+            const acceptedMingleId = toNumberOrNull(detail?.quickMatch?.mingleId);
+            if (acceptedMingleId) {
+              const joined = await joinMingleChatRoom(acceptedMingleId);
+              const chatRoomId = toNumberOrNull(joined?.chatRoom?.id);
+              if (chatRoomId && navigationRef.isReady()) {
+                navigationRef.navigate("Tabs", {
+                  screen: "Chats",
+                  params: { chatRoomId },
+                });
+              } else if (navigationRef.isReady()) {
+                navigationRef.navigate("Tabs", { screen: "Chats" });
+              }
+            } else if (navigationRef.isReady()) {
+              navigationRef.navigate("Tabs", { screen: "Chats" });
+            }
+            showInAppBanner("빠른 매칭이 확정되어 채팅으로 이동합니다.");
+          } else {
+            Alert.alert(
+              "빠른 매칭 안내",
+              "다른 밍글러가 먼저 수락했어요.",
+            );
+          }
+        } catch {
+          Alert.alert(
+            "빠른 매칭 안내",
+            "다른 밍글러가 먼저 수락했어요.",
+          );
+        }
         setIncomingQuickMatch(null);
         setPendingAcceptedQuickMatchId(null);
         setIncomingActionLoading(false);
@@ -192,7 +228,7 @@ export function QuickMatchAlertListener() {
     } finally {
       setIncomingActionLoading(false);
     }
-  }, [incomingActionLoading, incomingQuickMatch?.quickMatch?.id, showInAppBanner]);
+  }, [incomingActionLoading, incomingQuickMatch?.quickMatch?.id, showInAppBanner, userId]);
 
   const handleDeclineIncomingQuickMatch = useCallback(async () => {
     const quickMatchId = toNumberOrNull(incomingQuickMatch?.quickMatch?.id);
@@ -333,13 +369,26 @@ export function QuickMatchAlertListener() {
           }
           setIncomingQuickMatch(null);
           setIncomingActionLoading(false);
+          const matchedPendingAccept =
+            alreadyAcceptedId &&
+            pendingAcceptedQuickMatchId &&
+            alreadyAcceptedId === pendingAcceptedQuickMatchId;
           if (pendingAcceptedQuickMatchId) {
             setPendingAcceptedQuickMatchId(null);
           }
-          Alert.alert(
-            "빠른 매칭 안내",
-            "다른 밍글러가 먼저 수락했어요.",
-          );
+          if (matchedPendingAccept) {
+            if (navigationRef.isReady()) {
+              navigationRef.navigate("Tabs", {
+                screen: "Chats",
+              });
+            }
+            showInAppBanner("빠른 매칭이 확정되어 채팅으로 이동합니다.");
+          } else {
+            Alert.alert(
+              "빠른 매칭 안내",
+              "다른 밍글러가 먼저 수락했어요.",
+            );
+          }
           return;
         }
         if (pendingAcceptedQuickMatchId && event?.action === "QUICK_MATCH_ACCEPT") {
