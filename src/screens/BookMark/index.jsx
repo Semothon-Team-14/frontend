@@ -1,31 +1,142 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { useAuth } from "../../auth";
+import { decodeUserIdFromToken } from "../../auth/userId";
 import {
   deleteSavedCafe,
   deleteSavedRestaurant,
   fetchSavedCafes,
   fetchSavedRestaurants,
 } from "../../services/savedPlaceService";
+import { fetchTrips } from "../../services/tripService";
+import { fetchAllCities, fetchCafeImages, fetchRestaurantImages } from "../../services/placeService";
+import { pickCurrentTrip } from "../../utils/trip";
+
+const DEFAULT_HERO_IMAGE = require("../../images/bookmarkBackground.png");
+const HERO_IMAGE_ROTATE_MS = 5600;
+
+function shuffleItems(items) {
+  const nextItems = [...items];
+
+  for (let index = nextItems.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [nextItems[index], nextItems[randomIndex]] = [nextItems[randomIndex], nextItems[index]];
+  }
+
+  return nextItems;
+}
 
 export function BookMark() {
+  const { token } = useAuth();
+  const isFocused = useIsFocused();
+  const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const [savedRestaurants, setSavedRestaurants] = useState([]);
   const [savedCafes, setSavedCafes] = useState([]);
+  const [heroImageEntries, setHeroImageEntries] = useState([]);
+  const [heroImageIndex, setHeroImageIndex] = useState(0);
+  const [defaultHeroImageUrl, setDefaultHeroImageUrl] = useState(null);
+
+  const loadHeroImages = useCallback(async (restaurantItems, cafeItems) => {
+    if (!restaurantItems.length && !cafeItems.length) {
+      setHeroImageEntries([]);
+      setHeroImageIndex(0);
+      return;
+    }
+
+    const restaurantImageGroups = await Promise.all(
+      restaurantItems.map(async (savedRestaurant) => {
+        const restaurantId = savedRestaurant?.restaurant?.id;
+        const placeName = savedRestaurant?.restaurant?.name || "";
+        if (!restaurantId) {
+          return [];
+        }
+
+        try {
+          const response = await fetchRestaurantImages(restaurantId);
+          return (response?.images ?? [])
+            .map((image) => image?.imageUrl)
+            .filter(Boolean)
+            .map((imageUrl) => ({
+              imageUrl,
+              placeName,
+            }));
+        } catch {
+          return [];
+        }
+      }),
+    );
+
+    const cafeImageGroups = await Promise.all(
+      cafeItems.map(async (savedCafe) => {
+        const cafeId = savedCafe?.cafe?.id;
+        const placeName = savedCafe?.cafe?.name || "";
+        if (!cafeId) {
+          return [];
+        }
+
+        try {
+          const response = await fetchCafeImages(cafeId);
+          return (response?.images ?? [])
+            .map((image) => image?.imageUrl)
+            .filter(Boolean)
+            .map((imageUrl) => ({
+              imageUrl,
+              placeName,
+            }));
+        } catch {
+          return [];
+        }
+      }),
+    );
+
+    const shuffledEntries = shuffleItems([
+      ...restaurantImageGroups.flat(),
+      ...cafeImageGroups.flat(),
+    ]);
+    setHeroImageEntries(shuffledEntries);
+    setHeroImageIndex(0);
+  }, []);
 
   const loadSavedPlaces = useCallback(async () => {
+    const [restaurantResult, cafeResult, tripsResult, citiesResult] = await Promise.allSettled([
+      fetchSavedRestaurants(),
+      fetchSavedCafes(),
+      fetchTrips(),
+      fetchAllCities(),
+    ]);
+
     try {
-      const [restaurantResponse, cafeResponse] = await Promise.all([
-        fetchSavedRestaurants(),
-        fetchSavedCafes(),
-      ]);
-      setSavedRestaurants(restaurantResponse?.savedRestaurants ?? []);
-      setSavedCafes(cafeResponse?.savedCafes ?? []);
+      const nextSavedRestaurants = restaurantResult.status === "fulfilled"
+        ? (restaurantResult.value?.savedRestaurants ?? [])
+        : [];
+      const nextSavedCafes = cafeResult.status === "fulfilled"
+        ? (cafeResult.value?.savedCafes ?? [])
+        : [];
+      const trips = tripsResult.status === "fulfilled"
+        ? (tripsResult.value?.trips ?? [])
+        : [];
+      const cities = citiesResult.status === "fulfilled"
+        ? (citiesResult.value ?? [])
+        : [];
+      const userTrips = trips.filter((trip) => Number(trip?.userId) === Number(userId));
+      const currentTrip = pickCurrentTrip(userTrips);
+      const currentTripCity = cities.find((city) => Number(city?.id) === Number(currentTrip?.cityId)) || null;
+
+      setSavedRestaurants(nextSavedRestaurants);
+      setSavedCafes(nextSavedCafes);
+      setDefaultHeroImageUrl(currentTripCity?.representativeImageUrl || null);
+      await loadHeroImages(nextSavedRestaurants, nextSavedCafes);
     } catch {
       setSavedRestaurants([]);
       setSavedCafes([]);
+      setHeroImageEntries([]);
+      setHeroImageIndex(0);
+      setDefaultHeroImageUrl(null);
     }
-  }, []);
+  }, [loadHeroImages, userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -33,33 +144,64 @@ export function BookMark() {
     }, [loadSavedPlaces]),
   );
 
-  const firstRestaurant = useMemo(() => savedRestaurants[0]?.restaurant ?? null, [savedRestaurants]);
-  const firstCafe = useMemo(() => savedCafes[0]?.cafe ?? null, [savedCafes]);
-  const primaryPlace = firstRestaurant || firstCafe;
+  useEffect(() => {
+    if (!isFocused || heroImageEntries.length === 0) {
+      return undefined;
+    }
+
+    const intervalId = setInterval(() => {
+      setHeroImageIndex((prev) => (prev + 1) % heroImageEntries.length);
+    }, HERO_IMAGE_ROTATE_MS);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [heroImageEntries, isFocused]);
+
+  const activeHeroImage = heroImageEntries[heroImageIndex] ?? null;
+  const defaultHeroImageSource = defaultHeroImageUrl ? { uri: defaultHeroImageUrl } : DEFAULT_HERO_IMAGE;
+  const heroImageSource = activeHeroImage?.imageUrl
+    ? { uri: activeHeroImage.imageUrl }
+    : defaultHeroImageSource;
 
   async function handleDeleteSavedRestaurant(savedRestaurantId) {
     await deleteSavedRestaurant(savedRestaurantId);
-    setSavedRestaurants((prev) => prev.filter((item) => item.id !== savedRestaurantId));
+    const nextSavedRestaurants = savedRestaurants.filter((item) => item.id !== savedRestaurantId);
+    setSavedRestaurants(nextSavedRestaurants);
+    await loadHeroImages(nextSavedRestaurants, savedCafes);
   }
 
   async function handleDeleteSavedCafe(savedCafeId) {
     await deleteSavedCafe(savedCafeId);
-    setSavedCafes((prev) => prev.filter((item) => item.id !== savedCafeId));
+    const nextSavedCafes = savedCafes.filter((item) => item.id !== savedCafeId);
+    setSavedCafes(nextSavedCafes);
+    await loadHeroImages(savedRestaurants, nextSavedCafes);
   }
 
   return (
     <View style={styles.container}>
       <ImageBackground
-        source={require("../../images/bookmarkBackground.png")}
+        source={heroImageSource}
         resizeMode="cover"
         style={styles.heroImage}
-      />
+      >
+        {activeHeroImage?.placeName ? (
+          <>
+            <LinearGradient
+              colors={["transparent", "rgba(0,0,0,0.45)"]}
+              style={styles.heroImageGradient}
+            />
+            <View style={styles.heroImageLabelWrap}>
+              <Text style={styles.heroImageLabel}>{activeHeroImage.placeName}</Text>
+            </View>
+          </>
+        ) : null}
+      </ImageBackground>
 
       <ScrollView contentContainerStyle={styles.sheetWrap}>
         <View style={styles.sheet}>
           <View style={styles.titleRow}>
-            <Text style={styles.placeTitle}>{primaryPlace?.name || "-"}</Text>
-            <Text style={styles.placeType}>{primaryPlace ? (firstRestaurant ? "restaurant" : "cafe") : "-"}</Text>
+            <Text style={styles.placeTitle}>나만의 장소</Text>
           </View>
 
           <Text style={styles.sectionTitle}>저장한 식당</Text>
@@ -109,6 +251,27 @@ const styles = StyleSheet.create({
     height: 400,
     position: "absolute",
     top: 0,
+  },
+  heroImageGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 160,
+  },
+  heroImageLabelWrap: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    bottom: 72,
+  },
+  heroImageLabel: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 22,
+    fontWeight: "700",
+    textShadowColor: "rgba(0,0,0,0.25)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   sheetWrap: {
     paddingTop: 350,
