@@ -184,7 +184,8 @@ export function MainScreen() {
   );
 
   const [homeMode, setHomeMode] = useState(getCurrentHomeMode());
-  const [nearbyMinglerModalVisible, setNearbyMinglerModalVisible] = useState(false);
+  const [nearbyMinglerModalVisible, setNearbyMinglerModalVisible] =
+    useState(false);
   const [nearbyMinglerTarget, setNearbyMinglerTarget] = useState("ANY");
   const [activeChip, setActiveChip] = useState("restaurant");
   const [currentTrip, setCurrentTrip] = useState(null);
@@ -360,8 +361,10 @@ export function MainScreen() {
         fetchLocals(),
         fetchUser(userId),
       ]);
-      const allCities = allCitiesResult.status === "fulfilled" ? allCitiesResult.value : [];
-      const tripsResponse = tripsResult.status === "fulfilled" ? tripsResult.value : { trips: [] };
+      const allCities =
+        allCitiesResult.status === "fulfilled" ? allCitiesResult.value : [];
+      const tripsResponse =
+        tripsResult.status === "fulfilled" ? tripsResult.value : { trips: [] };
       const savedRestaurantsResponse =
         savedRestaurantsResult.status === "fulfilled"
           ? savedRestaurantsResult.value
@@ -371,8 +374,11 @@ export function MainScreen() {
           ? savedCafesResult.value
           : { savedCafes: [] };
       const localsResponse =
-        localsResult.status === "fulfilled" ? localsResult.value : { locals: [] };
-      const userResponse = userResult.status === "fulfilled" ? userResult.value : { user: null };
+        localsResult.status === "fulfilled"
+          ? localsResult.value
+          : { locals: [] };
+      const userResponse =
+        userResult.status === "fulfilled" ? userResult.value : { user: null };
       const userTrips = (tripsResponse?.trips ?? []).filter(
         (trip) => Number(trip?.userId) === Number(userId),
       );
@@ -381,8 +387,9 @@ export function MainScreen() {
         allCities.find((item) => Number(item?.id) === Number(trip?.cityId)) ||
         null;
       const latestLocal =
-        [...(localsResponse?.locals ?? [])]
-          .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))[0] || null;
+        [...(localsResponse?.locals ?? [])].sort(
+          (a, b) => Number(b?.id || 0) - Number(a?.id || 0),
+        )[0] || null;
       const nextLocalCity =
         allCities.find(
           (item) => Number(item?.id) === Number(latestLocal?.city?.id),
@@ -640,11 +647,11 @@ export function MainScreen() {
             <Pressable onPress={() => navigation.navigate("ProfileEdit")}>
               <Person />
             </Pressable>
-            <Pressable style={styles.logoutMiniButton} onPress={logout}>
+            {/* <Pressable style={styles.logoutMiniButton} onPress={logout}>
               <Text style={styles.logoutMiniButtonText}>
                 {tx("로그아웃", "Logout")}
               </Text>
-            </Pressable>
+            </Pressable> */}
           </View>
         </View>
 
@@ -930,7 +937,7 @@ export function MainScreen() {
           </View>
         ) : null}
 
-          {homeMode === HOME_MODE_LOCAL ? (
+        {homeMode === HOME_MODE_LOCAL ? (
           <View style={styles.localMapPanel}>
             {localMingleLoading ? (
               <View style={styles.pendingWrap}>
@@ -991,7 +998,7 @@ export function MainScreen() {
               <Ionicons name="add" size={30} color="#fff" />
             </Pressable>
           </View>
-          ) : null}
+        ) : null}
       </ScrollView>
       <Modal
         visible={nearbyMinglerModalVisible}
@@ -1005,7 +1012,10 @@ export function MainScreen() {
             <View style={styles.nearbyMinglerModalTitleRow}>
               <Ionicons name="checkmark-circle" size={24} color="#1C73F0" />
               <Text style={styles.nearbyMinglerModalTitle}>
-                {tx("원하는 밍글러를 선택해주세요!", "Choose the minglers you want!")}
+                {tx(
+                  "원하는 밍글러를 선택해주세요!",
+                  "Choose the minglers you want!",
+                )}
               </Text>
             </View>
             <View style={styles.nearbyMinglerOptionRow}>
