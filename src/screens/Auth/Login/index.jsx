@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../../../auth";
 
 export function LoginScreen({ navigation }) {
@@ -28,6 +28,13 @@ export function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.logoWrap}>
+        <Image
+          source={require("../../../images/home_mode_logo.png")}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+      </View>
       <Text style={styles.title}>로그인</Text>
       {/* <Text style={styles.subtitle}>Figma 인증 화면 추가 전 임시 인증 UI입니다.</Text> */}
 
@@ -85,6 +92,16 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: "700",
     color: "#111",
+  },
+  logoWrap: {
+    width: 44,
+    height: 44,
+    alignItems: "flex-start",
+    justifyContent: "center",
+  },
+  logoImage: {
+    width: 32,
+    height: 32,
   },
   subtitle: {
     fontSize: 14,
