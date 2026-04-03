@@ -85,18 +85,18 @@ function ChipRow({ activeId, onSelect }) {
 export function MainScreen() {
   const navigation = useNavigation();
   const { token, logout } = useAuth();
-  const [currentTime, setCurrentTime] = useState('');
+  const [currentTime, setCurrentTime] = useState("");
 
   useFocusEffect(
     useCallback(() => {
       setCurrentTime(
-        new Date().toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
+        new Date().toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
           hour12: true,
-        })
+        }),
       );
-    }, [])
+    }, []),
   );
 
   const [homeMode, setHomeMode] = useState(HOME_MODE_TRAVELER);
