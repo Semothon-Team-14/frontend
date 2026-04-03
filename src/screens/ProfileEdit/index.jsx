@@ -184,7 +184,12 @@ export function ProfileEdit({ navigation }) {
             {form.profileImageUrl ? (
               <Image source={{ uri: form.profileImageUrl }} style={styles.profileImage} />
             ) : (
-              <Text style={styles.profileImagePlaceholder}>사진</Text>
+              <Ionicons
+                name="person-circle"
+                size={62}
+                color="#94A3B8"
+                style={styles.profileImagePlaceholder}
+              />
             )}
           </View>
           <View style={styles.profileImageButtonGroup}>
@@ -320,9 +325,7 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   profileImagePlaceholder: {
-    color: "#768399",
-    fontSize: 12,
-    fontWeight: "700",
+    lineHeight: 62,
   },
   profileImageButton: {
     height: 38,

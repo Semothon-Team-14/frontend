@@ -1,10 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { CalendarDateField } from "../../../components/CalendarDateField";
 import { SearchDropdown } from "../../../components/SearchDropdown";
 import { useAuth } from "../../../auth";
-import { createLocal, createTrip, fetchAllCities, fetchKeywords, uploadUserProfileImage } from "../../../services";
+import {
+  createLocal,
+  createTrip,
+  fetchAllCities,
+  fetchKeywords,
+  uploadUserProfileImage,
+} from "../../../services";
+import GoBack from "../../../icons/goback.svg";
 
 const STEP_RESIDENCE = 0;
 const STEP_KEYWORDS = 1;
@@ -14,7 +30,9 @@ const STEP_COUNT = 4;
 const KEYWORD_PAGE_SIZE = 10;
 
 function normalizeLiteral(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function getCityDisplayName(city) {
@@ -54,7 +72,8 @@ export function SignUpScreen({ navigation }) {
 
   const [cities, setCities] = useState([]);
   const [keywords, setKeywords] = useState([]);
-  const [visibleKeywordCount, setVisibleKeywordCount] = useState(KEYWORD_PAGE_SIZE);
+  const [visibleKeywordCount, setVisibleKeywordCount] =
+    useState(KEYWORD_PAGE_SIZE);
 
   const [residenceQuery, setResidenceQuery] = useState("");
   const [selectedResidenceCity, setSelectedResidenceCity] = useState(null);
@@ -107,8 +126,14 @@ export function SignUpScreen({ navigation }) {
         }
 
         const dedupedCities = Array.from(
-          new Map((loadedCities ?? []).map((city) => [city?.id, city])).values(),
-        ).sort((a, b) => String(getCityDisplayName(a)).localeCompare(String(getCityDisplayName(b))));
+          new Map(
+            (loadedCities ?? []).map((city) => [city?.id, city]),
+          ).values(),
+        ).sort((a, b) =>
+          String(getCityDisplayName(a)).localeCompare(
+            String(getCityDisplayName(b)),
+          ),
+        );
         const loadedKeywords = (keywordResponse?.keywords ?? [])
           .slice()
           .sort((a, b) => Number(b?.priority ?? 0) - Number(a?.priority ?? 0));
@@ -144,24 +169,34 @@ export function SignUpScreen({ navigation }) {
   function handleResidenceQueryChange(nextQuery) {
     setResidenceQuery(nextQuery);
     const normalizedQuery = normalizeLiteral(nextQuery);
-    const exactMatched = cities.find((city) => {
-      const ko = normalizeLiteral(city?.cityNameKorean);
-      const en = normalizeLiteral(city?.cityNameEnglish);
-      const fallback = normalizeLiteral(city?.name);
-      return normalizedQuery === ko || normalizedQuery === en || normalizedQuery === fallback;
-    }) || null;
+    const exactMatched =
+      cities.find((city) => {
+        const ko = normalizeLiteral(city?.cityNameKorean);
+        const en = normalizeLiteral(city?.cityNameEnglish);
+        const fallback = normalizeLiteral(city?.name);
+        return (
+          normalizedQuery === ko ||
+          normalizedQuery === en ||
+          normalizedQuery === fallback
+        );
+      }) || null;
     setSelectedResidenceCity(exactMatched);
   }
 
   function handleTripCityQueryChange(nextQuery) {
     setTripCityQuery(nextQuery);
     const normalizedQuery = normalizeLiteral(nextQuery);
-    const exactMatched = cities.find((city) => {
-      const ko = normalizeLiteral(city?.cityNameKorean);
-      const en = normalizeLiteral(city?.cityNameEnglish);
-      const fallback = normalizeLiteral(city?.name);
-      return normalizedQuery === ko || normalizedQuery === en || normalizedQuery === fallback;
-    }) || null;
+    const exactMatched =
+      cities.find((city) => {
+        const ko = normalizeLiteral(city?.cityNameKorean);
+        const en = normalizeLiteral(city?.cityNameEnglish);
+        const fallback = normalizeLiteral(city?.name);
+        return (
+          normalizedQuery === ko ||
+          normalizedQuery === en ||
+          normalizedQuery === fallback
+        );
+      }) || null;
     setSelectedTripCity(exactMatched);
   }
 
@@ -176,22 +211,30 @@ export function SignUpScreen({ navigation }) {
   }
 
   function handleLoadMoreKeywords() {
-    setVisibleKeywordCount((previous) => Math.min(previous + KEYWORD_PAGE_SIZE, keywords.length));
+    setVisibleKeywordCount((previous) =>
+      Math.min(previous + KEYWORD_PAGE_SIZE, keywords.length),
+    );
   }
 
   async function pickProfileImage(source) {
     try {
-      const permission = source === "camera"
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        source === "camera"
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        setError(source === "camera" ? "카메라 권한을 허용해주세요." : "사진 접근 권한을 허용해주세요.");
+        setError(
+          source === "camera"
+            ? "카메라 권한을 허용해주세요."
+            : "사진 접근 권한을 허용해주세요.",
+        );
         return;
       }
 
-      const launch = source === "camera"
-        ? ImagePicker.launchCameraAsync
-        : ImagePicker.launchImageLibraryAsync;
+      const launch =
+        source === "camera"
+          ? ImagePicker.launchCameraAsync
+          : ImagePicker.launchImageLibraryAsync;
       const picked = await launch({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -230,12 +273,19 @@ export function SignUpScreen({ navigation }) {
     }
 
     if (step === STEP_TRIP) {
-      const hasAnyTripInput = isFilled(tripCityQuery) || isFilled(tripStartDate) || isFilled(tripEndDate);
+      const hasAnyTripInput =
+        isFilled(tripCityQuery) ||
+        isFilled(tripStartDate) ||
+        isFilled(tripEndDate);
       if (!hasAnyTripInput) {
         return true;
       }
 
-      if (!selectedTripCity?.id || !isFilled(tripStartDate) || !isFilled(tripEndDate)) {
+      if (
+        !selectedTripCity?.id ||
+        !isFilled(tripStartDate) ||
+        !isFilled(tripEndDate)
+      ) {
         setError("여행 계획을 입력하려면 도시와 날짜를 모두 선택해주세요.");
         return false;
       }
@@ -252,7 +302,12 @@ export function SignUpScreen({ navigation }) {
         return false;
       }
 
-      if (!isFilled(profile.username) || !isFilled(profile.password) || !isFilled(profile.email) || !isFilled(profile.phone)) {
+      if (
+        !isFilled(profile.username) ||
+        !isFilled(profile.password) ||
+        !isFilled(profile.email) ||
+        !isFilled(profile.phone)
+      ) {
         setError("아이디, 비밀번호, 이메일, 전화번호를 입력해주세요.");
         return false;
       }
@@ -304,8 +359,12 @@ export function SignUpScreen({ navigation }) {
         email: profile.email.trim(),
         phone: profile.phone.trim(),
         sex: profile.sex,
-        introduction: profile.introduction?.trim() ? profile.introduction.trim() : null,
-        profileImageUrl: profile.profileImageUrl?.trim() ? profile.profileImageUrl.trim() : null,
+        introduction: profile.introduction?.trim()
+          ? profile.introduction.trim()
+          : null,
+        profileImageUrl: profile.profileImageUrl?.trim()
+          ? profile.profileImageUrl.trim()
+          : null,
         nationalityId: selectedResidenceCity?.nationalityId || null,
         keywordIds: selectedKeywordIds,
       });
@@ -314,8 +373,12 @@ export function SignUpScreen({ navigation }) {
         try {
           const userId = Number(createdUser?.id || 0);
           if (Number.isFinite(userId) && userId > 0) {
-            const uploadResponse = await uploadUserProfileImage(userId, profileImageUri);
-            const uploadedImageUrl = uploadResponse?.user?.profileImageUrl || "";
+            const uploadResponse = await uploadUserProfileImage(
+              userId,
+              profileImageUri,
+            );
+            const uploadedImageUrl =
+              uploadResponse?.user?.profileImageUrl || "";
             if (uploadedImageUrl) {
               updateProfile("profileImageUrl", uploadedImageUrl);
             }
@@ -331,7 +394,11 @@ export function SignUpScreen({ navigation }) {
         await createLocal({ cityId: selectedResidenceCity.id });
       }
 
-      if (selectedTripCity?.id && isFilled(tripStartDate) && isFilled(tripEndDate)) {
+      if (
+        selectedTripCity?.id &&
+        isFilled(tripStartDate) &&
+        isFilled(tripEndDate)
+      ) {
         const tripTitle = `${getCityDisplayName(selectedTripCity)} 여행`;
         await createTrip({
           title: tripTitle,
@@ -348,24 +415,33 @@ export function SignUpScreen({ navigation }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.headerRow}>
         <Pressable onPress={handleBackStep}>
-          <Text style={styles.backText}>이전</Text>
+          <GoBack width={16} height={16} />
         </Pressable>
-        <Text style={styles.stepText}>{step + 1} / {STEP_COUNT}</Text>
       </View>
 
       <View style={styles.progressRow}>
         {[0, 1, 2, 3].map((index) => (
-          <View key={index} style={[styles.progressDot, index <= step && styles.progressDotActive]} />
+          <View
+            key={index}
+            style={[
+              styles.progressDot,
+              index <= step && styles.progressDotActive,
+            ]}
+          />
         ))}
       </View>
 
       {step === STEP_RESIDENCE ? (
         <View style={styles.card}>
-          <Text style={styles.title}>반가워요!</Text>
-          <Text style={styles.subtitle}>현재 거주지를 알려주세요.</Text>
+          <Text style={styles.title}>
+            반가워요!{"\n"}현재 거주지를 알려주세요.
+          </Text>
           <Text style={styles.helper}>상세한 위치를 입력할수록 좋아요.</Text>
 
           <SearchDropdown
@@ -389,9 +465,10 @@ export function SignUpScreen({ navigation }) {
 
       {step === STEP_KEYWORDS ? (
         <View style={styles.card}>
-          <Text style={styles.title}>나의 여행 스타일 키워드</Text>
-          <Text style={styles.subtitle}>가장 가까운 키워드를 선택해주세요.</Text>
-          <Text style={styles.helper}>중복 선택 가능 · {keywordCountLabel}</Text>
+          <Text style={styles.title}>
+            나의 여행 스타일에 가장{"\n"}가까운 키워드를 선택해주세요.
+          </Text>
+          <Text style={styles.helper}>중복 선택도 가능해요.</Text>
 
           <View style={styles.keywordWrap}>
             {visibleKeywords.map((keyword) => {
@@ -399,10 +476,18 @@ export function SignUpScreen({ navigation }) {
               return (
                 <Pressable
                   key={keyword.id}
-                  style={[styles.keywordChip, active && styles.keywordChipActive]}
+                  style={[
+                    styles.keywordChip,
+                    active && styles.keywordChipActive,
+                  ]}
                   onPress={() => toggleKeyword(keyword.id)}
                 >
-                  <Text style={[styles.keywordChipText, active && styles.keywordChipTextActive]}>
+                  <Text
+                    style={[
+                      styles.keywordChipText,
+                      active && styles.keywordChipTextActive,
+                    ]}
+                  >
                     {formatKeywordLabel(keyword.label)}
                   </Text>
                 </Pressable>
@@ -410,7 +495,10 @@ export function SignUpScreen({ navigation }) {
             })}
           </View>
           {canLoadMoreKeywords ? (
-            <Pressable style={styles.keywordMoreButton} onPress={handleLoadMoreKeywords}>
+            <Pressable
+              style={styles.keywordMoreButton}
+              onPress={handleLoadMoreKeywords}
+            >
               <Text style={styles.keywordMoreButtonText}>키워드 더 보기</Text>
             </Pressable>
           ) : null}
@@ -419,8 +507,12 @@ export function SignUpScreen({ navigation }) {
 
       {step === STEP_TRIP ? (
         <View style={styles.card}>
-          <Text style={styles.title}>곧 떠날 여정이 있다면 알려주세요!</Text>
-          <Text style={styles.subtitle}>미리 밍글러를 위한 연결을 준비할게요.</Text>
+          <Text style={styles.title}>
+            곧 떠날 여정이 있다면{"\n"}알려주세요!
+          </Text>
+          <Text style={styles.subtitle}>
+            미리 밍글러를 위한 연결을 준비할게요.
+          </Text>
 
           <Text style={styles.label}>어디로 떠나시나요?</Text>
           <SearchDropdown
@@ -469,23 +561,40 @@ export function SignUpScreen({ navigation }) {
 
       {step === STEP_PROFILE ? (
         <View style={styles.card}>
-          <Text style={styles.title}>마지막이에요!</Text>
-          <Text style={styles.subtitle}>기본 정보를 설정해주세요.</Text>
+          <Text style={styles.title}>
+            마지막이에요!{"\n"}기본 정보를 설정해주세요.
+          </Text>
+          <Text style={styles.subtitle}>
+            미리 밍글러를 위한 연결을 준비할게요.
+          </Text>
 
-          <Text style={styles.label}>프로필 사진</Text>
           <View style={styles.profileImageRow}>
             <View style={styles.profileImagePreview}>
               {profileImageUri ? (
-                <Image source={{ uri: profileImageUri }} style={styles.profileImage} />
+                <Image
+                  source={{ uri: profileImageUri }}
+                  style={styles.profileImage}
+                />
               ) : (
-                <Text style={styles.profileImagePlaceholder}>사진</Text>
+                <Ionicons
+                  name="person-circle"
+                  size={62}
+                  color="#94A3B8"
+                  style={styles.profileImagePlaceholder}
+                />
               )}
             </View>
             <View style={styles.profileImageButtonGroup}>
-              <Pressable style={styles.profileImageButton} onPress={handlePickProfileImageFromGallery}>
+              <Pressable
+                style={styles.profileImageButton}
+                onPress={handlePickProfileImageFromGallery}
+              >
                 <Text style={styles.profileImageButtonText}>갤러리</Text>
               </Pressable>
-              <Pressable style={styles.profileImageButton} onPress={handlePickProfileImageFromCamera}>
+              <Pressable
+                style={styles.profileImageButton}
+                onPress={handlePickProfileImageFromCamera}
+              >
                 <Text style={styles.profileImageButtonText}>카메라</Text>
               </Pressable>
             </View>
@@ -501,25 +610,72 @@ export function SignUpScreen({ navigation }) {
 
           <Text style={styles.label}>성별</Text>
           <View style={styles.sexRow}>
-            <Pressable style={[styles.sexButton, profile.sex === "FEMALE" && styles.sexButtonActive]} onPress={() => updateProfile("sex", "FEMALE")}>
-              <Text style={[styles.sexText, profile.sex === "FEMALE" && styles.sexTextActive]}>여자</Text>
+            <Pressable
+              style={[
+                styles.sexButton,
+                profile.sex === "FEMALE" && styles.sexButtonActive,
+              ]}
+              onPress={() => updateProfile("sex", "FEMALE")}
+            >
+              <Text
+                style={[
+                  styles.sexText,
+                  profile.sex === "FEMALE" && styles.sexTextActive,
+                ]}
+              >
+                여자
+              </Text>
             </Pressable>
-            <Pressable style={[styles.sexButton, profile.sex === "MALE" && styles.sexButtonActive]} onPress={() => updateProfile("sex", "MALE")}>
-              <Text style={[styles.sexText, profile.sex === "MALE" && styles.sexTextActive]}>남자</Text>
+            <Pressable
+              style={[
+                styles.sexButton,
+                profile.sex === "MALE" && styles.sexButtonActive,
+              ]}
+              onPress={() => updateProfile("sex", "MALE")}
+            >
+              <Text
+                style={[
+                  styles.sexText,
+                  profile.sex === "MALE" && styles.sexTextActive,
+                ]}
+              >
+                남자
+              </Text>
             </Pressable>
           </View>
 
           <Text style={styles.label}>아이디</Text>
-          <TextInput style={styles.input} autoCapitalize="none" value={profile.username} onChangeText={(value) => updateProfile("username", value)} />
+          <TextInput
+            style={styles.input}
+            autoCapitalize="none"
+            value={profile.username}
+            onChangeText={(value) => updateProfile("username", value)}
+          />
 
           <Text style={styles.label}>비밀번호</Text>
-          <TextInput style={styles.input} secureTextEntry value={profile.password} onChangeText={(value) => updateProfile("password", value)} />
+          <TextInput
+            style={styles.input}
+            secureTextEntry
+            value={profile.password}
+            onChangeText={(value) => updateProfile("password", value)}
+          />
 
           <Text style={styles.label}>이메일</Text>
-          <TextInput style={styles.input} autoCapitalize="none" keyboardType="email-address" value={profile.email} onChangeText={(value) => updateProfile("email", value)} />
+          <TextInput
+            style={styles.input}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            value={profile.email}
+            onChangeText={(value) => updateProfile("email", value)}
+          />
 
           <Text style={styles.label}>전화번호</Text>
-          <TextInput style={styles.input} keyboardType="phone-pad" value={profile.phone} onChangeText={(value) => updateProfile("phone", value)} />
+          <TextInput
+            style={styles.input}
+            keyboardType="phone-pad"
+            value={profile.phone}
+            onChangeText={(value) => updateProfile("phone", value)}
+          />
 
           <Text style={styles.label}>소개 (선택)</Text>
           <TextInput
@@ -553,12 +709,12 @@ const styles = StyleSheet.create({
     paddingTop: 64,
     paddingHorizontal: 20,
     paddingBottom: 34,
-    gap: 12,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 20,
   },
   backText: {
     color: "#3F4A60",
@@ -572,12 +728,14 @@ const styles = StyleSheet.create({
   },
   progressRow: {
     flexDirection: "row",
-    gap: 6,
+    borderRadius: 999,
+    overflow: "hidden",
+    width: "94%",
+    alignSelf: "center",
   },
   progressDot: {
     flex: 1,
     height: 4,
-    borderRadius: 999,
     backgroundColor: "#D9DEE8",
   },
   progressDotActive: {
@@ -585,9 +743,6 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E7EBF2",
     paddingHorizontal: 14,
     paddingVertical: 16,
     gap: 8,
@@ -596,22 +751,20 @@ const styles = StyleSheet.create({
     color: "#101827",
     fontSize: 22,
     fontWeight: "800",
-    marginBottom: 2,
   },
   subtitle: {
-    color: "#2A364F",
+    color: "#b8b8b8",
     fontSize: 14,
-    fontWeight: "600",
+    marginBottom: 12,
   },
   helper: {
     color: "#75809B",
     fontSize: 12,
-    marginBottom: 4,
+    marginBottom: 25,
   },
   label: {
     marginTop: 4,
-    color: "#59627A",
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: "600",
   },
   input: {
@@ -636,9 +789,7 @@ const styles = StyleSheet.create({
   },
   keywordChip: {
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#D8E2F5",
-    backgroundColor: "#F3F7FF",
+    backgroundColor: "white",
     minHeight: 44,
     paddingHorizontal: 16,
     paddingVertical: 11,
@@ -689,9 +840,7 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   profileImagePlaceholder: {
-    color: "#768399",
-    fontSize: 12,
-    fontWeight: "700",
+    lineHeight: 62,
   },
   profileImageButton: {
     height: 38,
@@ -759,6 +908,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#1C73F0",
     alignItems: "center",
     justifyContent: "center",
+    justifySelf: "flex-end",
   },
   primaryButtonDisabled: {
     opacity: 0.65,
