@@ -75,6 +75,7 @@ export function QuickMatch({ navigation, route }) {
     }
 
     const client = createQuickMatchSocketClient({
+      accessToken: token,
       onConnect: () => {
         if (!mountedRef.current) {
           return;
@@ -102,7 +103,7 @@ export function QuickMatch({ navigation, route }) {
         setSocketReady(false);
       }
     };
-  }, [userId]);
+  }, [token, userId]);
 
   useEffect(() => {
     if (!socketReady || !clientRef.current || !userId) {
