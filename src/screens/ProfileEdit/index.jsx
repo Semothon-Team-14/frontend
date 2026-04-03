@@ -13,6 +13,7 @@ import * as ImagePicker from "expo-image-picker";
 import { SearchDropdown } from "../../components/SearchDropdown";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
+import { useLocale } from "../../locale";
 import {
   fetchLocals,
   fetchNationalities,
@@ -28,9 +29,11 @@ function normalizeLiteral(value) {
     .toLowerCase();
 }
 
-function getNationalityDisplayName(nationality) {
+function getNationalityDisplayName(nationality, isKorean) {
   return (
-    nationality?.countryNameKorean || nationality?.countryNameEnglish || ""
+    (isKorean
+      ? nationality?.countryNameKorean || nationality?.countryNameEnglish
+      : nationality?.countryNameEnglish || nationality?.countryNameKorean) || ""
   );
 }
 
@@ -46,6 +49,7 @@ function getNationalitySearchText(nationality) {
 
 export function ProfileEdit({ navigation }) {
   const { token, logout } = useAuth();
+  const { tx, isKorean } = useLocale();
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const [nationalities, setNationalities] = useState([]);
   const [form, setForm] = useState({
@@ -95,18 +99,18 @@ export function ProfileEdit({ navigation }) {
         setSelectedNationality(matchedNationality);
         setNationalityQuery(
           matchedNationality
-            ? getNationalityDisplayName(matchedNationality)
+            ? getNationalityDisplayName(matchedNationality, isKorean)
             : "",
         );
         setLocalId(Number(latestLocal?.id || 0) || null);
         setAvailableTimeText(String(latestLocal?.availableTimeText || ""));
       } catch {
-        setError("사용자 정보를 불러오지 못했습니다.");
+        setError(tx("사용자 정보를 불러오지 못했습니다.", "Failed to load user profile."));
       }
     }
 
     load();
-  }, [userId]);
+  }, [userId, isKorean, tx]);
 
   function handleNationalityQueryChange(nextQuery) {
     setNationalityQuery(nextQuery);
@@ -127,7 +131,7 @@ export function ProfileEdit({ navigation }) {
 
   async function handleSave() {
     if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) {
-      setError("이름, 이메일, 전화번호를 입력해주세요.");
+      setError(tx("이름, 이메일, 전화번호를 입력해주세요.", "Please enter name, email, and phone."));
       return;
     }
 
@@ -150,7 +154,7 @@ export function ProfileEdit({ navigation }) {
       }
       navigation.goBack();
     } catch (requestError) {
-      setError(requestError?.message || "프로필 저장에 실패했습니다.");
+      setError(requestError?.message || tx("프로필 저장에 실패했습니다.", "Failed to save profile."));
     } finally {
       setLoading(false);
     }
@@ -170,8 +174,8 @@ export function ProfileEdit({ navigation }) {
       if (!permission.granted) {
         setError(
           source === "camera"
-            ? "카메라 권한을 허용해주세요."
-            : "사진 접근 권한을 허용해주세요.",
+            ? tx("카메라 권한을 허용해주세요.", "Please allow camera permission.")
+            : tx("사진 접근 권한을 허용해주세요.", "Please allow photo permission."),
         );
         return;
       }
@@ -192,7 +196,7 @@ export function ProfileEdit({ navigation }) {
 
       const assetUri = picked.assets?.[0]?.uri || "";
       if (!assetUri) {
-        setError("선택한 이미지를 불러오지 못했습니다.");
+        setError(tx("선택한 이미지를 불러오지 못했습니다.", "Failed to load selected image."));
         return;
       }
 
@@ -200,12 +204,12 @@ export function ProfileEdit({ navigation }) {
       const uploadResponse = await uploadUserProfileImage(userId, assetUri);
       const uploadedImageUrl = uploadResponse?.user?.profileImageUrl || "";
       if (!uploadedImageUrl) {
-        throw new Error("프로필 사진 URL을 받지 못했습니다.");
+        throw new Error(tx("프로필 사진 URL을 받지 못했습니다.", "Did not receive profile image URL."));
       }
 
       updateField("profileImageUrl", uploadedImageUrl);
     } catch (requestError) {
-      setError(requestError?.message || "프로필 사진 업로드에 실패했습니다.");
+      setError(requestError?.message || tx("프로필 사진 업로드에 실패했습니다.", "Failed to upload profile photo."));
     } finally {
       setLoading(false);
     }
@@ -228,18 +232,19 @@ export function ProfileEdit({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color="#111" />
         </Pressable>
-        <Text style={styles.headerTitle}>내 정보 수정</Text>
+        <Text style={styles.headerTitle}>{tx("내 정보 수정", "Edit Profile")}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.formCard}>
-        <Text style={styles.label}>프로필 이미지</Text>
+        <Text style={styles.label}>{tx("프로필 이미지", "Profile Image")}</Text>
         <View style={styles.profileImageRow}>
           <View style={styles.profileImagePreview}>
             {form.profileImageUrl ? (
               <Image
                 source={{ uri: form.profileImageUrl }}
                 style={styles.profileImage}
+                resizeMode="cover"
               />
             ) : (
               <Ionicons
@@ -256,58 +261,63 @@ export function ProfileEdit({ navigation }) {
               onPress={handlePickProfileImageFromGallery}
               disabled={loading}
             >
-              <Text style={styles.profileImageButtonText}>갤러리</Text>
+              <Text style={styles.profileImageButtonText}>{tx("갤러리", "Gallery")}</Text>
             </Pressable>
             <Pressable
               style={styles.profileImageButton}
               onPress={handlePickProfileImageFromCamera}
               disabled={loading}
             >
-              <Text style={styles.profileImageButtonText}>카메라</Text>
+              <Text style={styles.profileImageButtonText}>{tx("카메라", "Camera")}</Text>
             </Pressable>
           </View>
         </View>
 
-        <Text style={styles.label}>닉네임</Text>
+        <Text style={styles.label}>{tx("닉네임", "Nickname")}</Text>
         <TextInput
           style={styles.input}
           value={form.name}
           onChangeText={(v) => updateField("name", v)}
+          placeholder={tx("닉네임을 입력하세요", "Enter your nickname")}
         />
 
-        <Text style={styles.label}>이메일</Text>
+        <Text style={styles.label}>{tx("이메일", "Email")}</Text>
         <TextInput
           style={styles.input}
           value={form.email}
           onChangeText={(v) => updateField("email", v)}
           autoCapitalize="none"
+          keyboardType="email-address"
+          placeholder={tx("이메일을 입력하세요", "Enter your email")}
         />
 
-        <Text style={styles.label}>전화번호</Text>
+        <Text style={styles.label}>{tx("전화번호", "Phone")}</Text>
         <TextInput
           style={styles.input}
           value={form.phone}
           onChangeText={(v) => updateField("phone", v)}
+          keyboardType="phone-pad"
+          placeholder={tx("전화번호를 입력하세요", "Enter your phone number")}
         />
 
-        <Text style={styles.label}>국가</Text>
+        <Text style={styles.label}>{tx("국가", "Nationality")}</Text>
         <SearchDropdown
           value={nationalityQuery}
           onChangeText={handleNationalityQueryChange}
-          placeholder="국가명을 입력하세요"
+          placeholder={tx("국가명을 입력하세요", "Type a country")}
           items={nationalities}
           selectedItem={selectedNationality}
           getItemKey={(nationality) => nationality.id}
-          getItemLabel={getNationalityDisplayName}
+          getItemLabel={(nationality) => getNationalityDisplayName(nationality, isKorean)}
           getItemSearchText={getNationalitySearchText}
           onSelectItem={(nationality) => {
             setSelectedNationality(nationality);
-            setNationalityQuery(getNationalityDisplayName(nationality));
+            setNationalityQuery(getNationalityDisplayName(nationality, isKorean));
           }}
-          emptyText="일치하는 국가가 없습니다."
+          emptyText={tx("일치하는 국가가 없습니다.", "No matching nationality.")}
         />
 
-        <Text style={styles.label}>성별</Text>
+        <Text style={styles.label}>{tx("성별", "Gender")}</Text>
         <View style={styles.sexRow}>
           <Pressable
             style={[
@@ -322,7 +332,7 @@ export function ProfileEdit({ navigation }) {
                 form.sex === "MALE" && styles.sexTextActive,
               ]}
             >
-              남자
+              {tx("남자", "Male")}
             </Text>
           </Pressable>
           <Pressable
@@ -338,27 +348,28 @@ export function ProfileEdit({ navigation }) {
                 form.sex === "FEMALE" && styles.sexTextActive,
               ]}
             >
-              여자
+              {tx("여자", "Female")}
             </Text>
           </Pressable>
         </View>
 
-        <Text style={styles.label}>Introduction</Text>
+        <Text style={styles.label}>{tx("소개", "Introduction")}</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
           value={form.introduction}
           onChangeText={(v) => updateField("introduction", v)}
           multiline
+          placeholder={tx("자기소개를 입력하세요", "Write a short introduction")}
         />
 
         {Number(localId) > 0 ? (
           <>
-            <Text style={styles.label}>가능 시간</Text>
+            <Text style={styles.label}>{tx("가능 시간", "Available Time")}</Text>
             <TextInput
               style={styles.input}
               value={availableTimeText}
               onChangeText={setAvailableTimeText}
-              placeholder="예: 토 · 09:30 ~ 21:40"
+              placeholder={tx("예: 토 · 09:30 ~ 21:40", "e.g. Sat · 09:30 ~ 21:40")}
             />
           </>
         ) : null}
@@ -371,11 +382,11 @@ export function ProfileEdit({ navigation }) {
           disabled={loading}
         >
           <Text style={styles.saveButtonText}>
-            {loading ? "저장 중..." : "저장"}
+            {loading ? tx("저장 중...", "Saving...") : tx("저장", "Save")}
           </Text>
         </Pressable>
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>로그아웃</Text>
+          <Text style={styles.logoutButtonText}>{tx("로그아웃", "Logout")}</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -421,15 +432,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   profileImageRow: {
-    // flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginBottom: 4,
   },
   profileImagePreview: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     borderWidth: 1,
     borderColor: "#D5D5D5",
     backgroundColor: "#EEF2F8",
@@ -438,8 +448,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   profileImage: {
-    width: "100%",
-    height: "100%",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
   },
   profileImagePlaceholder: {
     lineHeight: 62,
