@@ -30,6 +30,15 @@ function overlapsTripWindow(targetDateTime, tripStartAt, tripEndAt) {
   return target >= tripStartAt && target <= tripEndAt;
 }
 
+function overlapsTripPeriod(startDateTime, endDateTime, tripStartAt, tripEndAt) {
+  const startAt = parseDate(startDateTime);
+  const endAt = parseDate(endDateTime) || startAt;
+  if (!startAt || !endAt || !tripStartAt || !tripEndAt) {
+    return false;
+  }
+  return startAt <= tripEndAt && endAt >= tripStartAt;
+}
+
 function toCityDisplayName(city, isKorean) {
   if (!city) {
     return "-";
@@ -127,7 +136,7 @@ export function TripRecordDetail({ navigation, route }) {
         if (!room?.directChat) {
           return;
         }
-        if (!overlapsTripWindow(room?.updatedDateTime || room?.createdDateTime, tripStartAt, tripEndAt)) {
+        if (!overlapsTripPeriod(room?.createdDateTime, room?.updatedDateTime, tripStartAt, tripEndAt)) {
           return;
         }
         const companionId = (room?.participantUserIds ?? []).find((participantId) => Number(participantId) !== Number(userId));
@@ -161,11 +170,16 @@ export function TripRecordDetail({ navigation, route }) {
         const myMembership = (row?.minglers ?? []).find(
           (mingler) => Number(mingler?.userId) === Number(userId),
         );
-        return overlapsTripWindow(
-          myMembership?.updatedDateTime || myMembership?.createdDateTime,
+        const membershipOverlaps = overlapsTripPeriod(
+          myMembership?.createdDateTime,
+          myMembership?.updatedDateTime,
           tripStartAt,
           tripEndAt,
         );
+        if (membershipOverlaps) {
+          return true;
+        }
+        return overlapsTripWindow(row?.mingle?.meetDateTime, tripStartAt, tripEndAt);
       });
 
       const mingleCompanionIds = new Set();
