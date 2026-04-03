@@ -561,8 +561,8 @@ export function Nearby({ route }) {
                     <Image
                       source={
                         Number(selectedMingleId) === Number(marker.id)
-                          ? require("../../../map_sel.png")
-                          : require("../../../map_notsel.png")
+                          ? require("../../images/mingle_marker_selected.png")
+                          : require("../../images/mingle_marker_unselected.png")
                       }
                       style={styles.markerImage}
                     />
