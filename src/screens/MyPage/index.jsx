@@ -315,7 +315,17 @@ export function MyPage({ navigation }) {
           </Pressable>
         </View>
 
-        <View>
+        <Image
+          source={
+            trips.length > 0
+              ? require("../../images/history_mascot_has_trip.png")
+              : require("../../images/history_mascot_no_trip.png")
+          }
+          style={styles.historyMascotImage}
+          resizeMode="contain"
+        />
+
+        <View style={styles.profileInfoWrap}>
           <Text style={styles.userCode}>USER #{user?.id ?? "-"}</Text>
           <Text style={styles.userName}>{user?.name || "-"}</Text>
           <View style={styles.tagsRow}>
@@ -423,6 +433,16 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     minHeight: 260,
     justifyContent: "space-between",
+  },
+  profileInfoWrap: {
+    maxWidth: "62%",
+  },
+  historyMascotImage: {
+    position: "absolute",
+    right: 4,
+    bottom: -8,
+    width: 232,
+    height: 188,
   },
   topBar: {
     flexDirection: "row",
