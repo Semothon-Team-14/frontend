@@ -344,7 +344,10 @@ export function MainScreen() {
       const nextTripCity =
         allCities.find((item) => Number(item?.id) === Number(trip?.cityId)) ||
         null;
-      const latestLocal = (localsResponse?.locals ?? [])[0] || null;
+      const latestLocal =
+        (localsResponse?.locals ?? [])
+          .filter((local) => Number(local?.userId) === Number(userId))
+          .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))[0] || null;
       const nextLocalCity =
         allCities.find(
           (item) => Number(item?.id) === Number(latestLocal?.city?.id),
