@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
+import { useLocale } from "../../locale";
 import { createMingle, fetchMingleMinglers, fetchMingles, joinMingle, leaveMingle } from "../../services/mingleService";
 import { fetchGooglePlaceDetails, searchGooglePlaces } from "../../services/googlePlacesService";
  
@@ -43,12 +44,12 @@ function toCalendarDateKey(value) {
   return `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
 }
 
-function toMeetDateTimeLabel(value) {
+function toMeetDateTimeLabel(value, locale) {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
-    return "언제 만날까요?";
+    return locale === "ko" ? "언제 만날까요?" : "When to meet?";
   }
 
-  return new Intl.DateTimeFormat("ko-KR", {
+  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
     month: "short",
     day: "numeric",
     weekday: "short",
@@ -62,32 +63,32 @@ function toTargetCountLabel(count) {
   return count >= 5 ? "5+" : String(count);
 }
 
-function toRelativeTimeLabel(isoString) {
+function toRelativeTimeLabel(isoString, locale) {
   if (!isoString) {
     return "";
   }
 
   const diffMs = Date.now() - new Date(isoString).getTime();
   if (!Number.isFinite(diffMs) || diffMs < 0) {
-    return "방금 전";
+    return locale === "ko" ? "방금 전" : "Just now";
   }
 
   const minutes = Math.floor(diffMs / 60000);
   if (minutes < 1) {
-    return "방금 전";
+    return locale === "ko" ? "방금 전" : "Just now";
   }
 
   if (minutes < 60) {
-    return `${minutes}분 전`;
+    return locale === "ko" ? `${minutes}분 전` : `${minutes}m ago`;
   }
 
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
-    return `${hours}시간 전`;
+    return locale === "ko" ? `${hours}시간 전` : `${hours}h ago`;
   }
 
   const days = Math.floor(hours / 24);
-  return `${days}일 전`;
+  return locale === "ko" ? `${days}일 전` : `${days}d ago`;
 }
 
 function toCoordinateValue(value) {
@@ -113,6 +114,7 @@ function isValidCoordinatePair(latitude, longitude) {
 
 export function Nearby({ route }) {
   const { token } = useAuth();
+  const { tx, locale } = useLocale();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [mingleRows, setMingleRows] = useState([]);
@@ -276,7 +278,7 @@ export function Nearby({ route }) {
     } catch {
       setMingleRows([]);
       setJoinedMingleIdSet(new Set());
-      setError("근처 밍글러 정보를 불러오지 못했습니다.");
+      setError(tx("근처 밍글러 정보를 불러오지 못했습니다.", "Failed to load nearby minglers."));
     } finally {
       setLoading(false);
     }
@@ -302,7 +304,7 @@ export function Nearby({ route }) {
 
       await loadNearby();
     } catch {
-      setError("밍글 참여 상태를 변경하지 못했습니다.");
+      setError(tx("밍글 참여 상태를 변경하지 못했습니다.", "Failed to update mingle participation."));
     }
   }
 
@@ -359,8 +361,8 @@ export function Nearby({ route }) {
         setPlaceSuggestions([]);
         setPlaceSearchError(
           e?.message === "Google Places API key is not configured."
-            ? "Google Places API key가 설정되지 않았습니다."
-            : "장소 검색에 실패했습니다.",
+            ? tx("Google Places API key가 설정되지 않았습니다.", "Google Places API key is not configured.")
+            : tx("장소 검색에 실패했습니다.", "Failed to search places."),
         );
       } finally {
         if (currentSequence === placeSearchSequenceRef.current) {
@@ -396,7 +398,7 @@ export function Nearby({ route }) {
       setPlaceSearchError(null);
       placeSessionTokenRef.current = `mingle-${Date.now()}`;
     } catch {
-      setPlaceSearchError("선택한 장소 정보를 불러오지 못했습니다.");
+      setPlaceSearchError(tx("선택한 장소 정보를 불러오지 못했습니다.", "Failed to load selected place."));
     } finally {
       setPlaceDetailLoading(false);
     }
@@ -465,7 +467,7 @@ export function Nearby({ route }) {
   async function handleCreateMingle() {
     const title = String(createForm.title || "").trim();
     if (!cityId || !title) {
-      setError("밍글 제목을 입력해주세요.");
+      setError(tx("밍글 제목을 입력해주세요.", "Please enter a mingle title."));
       return;
     }
 
@@ -474,7 +476,7 @@ export function Nearby({ route }) {
       String(placeQuery || "").trim().length > 0 &&
       (!Number.isFinite(createForm.latitude) || !Number.isFinite(createForm.longitude));
     if (hasTypedPlaceButNotSelected) {
-      setError("장소는 검색 결과에서 선택해주세요.");
+      setError(tx("장소는 검색 결과에서 선택해주세요.", "Please select a place from suggestions."));
       return;
     }
 
@@ -499,7 +501,7 @@ export function Nearby({ route }) {
         setSelectedMingleId(createdMingleId);
       }
     } catch {
-      setError("밍글 생성에 실패했습니다.");
+      setError(tx("밍글 생성에 실패했습니다.", "Failed to create mingle."));
     } finally {
       setCreateSubmitting(false);
     }
@@ -508,10 +510,10 @@ export function Nearby({ route }) {
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>로컬 밍글러</Text>
+        <Text style={styles.headerTitle}>{tx("로컬 밍글러", "Local Minglers")}</Text>
         <Pressable style={styles.createMingleButton} onPress={() => setCreateModalVisible(true)}>
           <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text style={styles.createMingleButtonText}>밍글 만들기</Text>
+          <Text style={styles.createMingleButtonText}>{tx("밍글 만들기", "Create")}</Text>
         </Pressable>
       </View>
 
@@ -533,7 +535,7 @@ export function Nearby({ route }) {
                   onPress={() => setGroupSizeFilter(filter)}
                 >
                   <Text style={[styles.groupFilterText, active && styles.groupFilterTextActive]}>
-                    {filter === GROUP_SIZE_FILTER_ALL ? "전체" : `${filter}명`}
+                    {filter === GROUP_SIZE_FILTER_ALL ? tx("전체", "All") : `${filter}${tx("명", "")}`}
                   </Text>
                 </Pressable>
               );
@@ -541,14 +543,14 @@ export function Nearby({ route }) {
           </View>
         </View>
 
-        {loading ? <Text style={styles.infoText}>불러오는 중...</Text> : null}
+        {loading ? <Text style={styles.infoText}>{tx("불러오는 중...", "Loading...")}</Text> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {!loading && !error ? (
           <>
             <View style={styles.mapCard}>
-              <Text style={styles.mapTitle}>밍글 지도</Text>
-              <Text style={styles.mapSubtitle}>카드를 선택하면 지도에서 해당 밍글 위치가 강조됩니다.</Text>
+              <Text style={styles.mapTitle}>{tx("밍글 지도", "Mingle Map")}</Text>
+              <Text style={styles.mapSubtitle}>{tx("카드를 선택하면 지도에서 해당 밍글 위치가 강조됩니다.", "Select a card to highlight its location on the map.")}</Text>
               <MapView style={styles.map} region={mapRegion}>
                 {mingleMarkers.map((marker) => (
                   <Marker
@@ -563,19 +565,19 @@ export function Nearby({ route }) {
                   </Marker>
                 ))}
               </MapView>
-              {mingleMarkers.length === 0 ? <Text style={styles.mapEmpty}>표시 가능한 밍글 좌표가 없습니다.</Text> : null}
+              {mingleMarkers.length === 0 ? <Text style={styles.mapEmpty}>{tx("표시 가능한 밍글 좌표가 없습니다.", "No coordinates to display.")}</Text> : null}
             </View>
 
             {filteredGroupRows.map((row) => {
               const joined = joinedMingleIdSet.has(row?.mingle?.id);
               const minglerCount = row?.minglers?.length ?? 0;
               const selected = Number(selectedMingleId) === Number(row?.mingle?.id);
-              const meetAtText = row?.mingle?.meetDateTime ? toRelativeTimeLabel(row?.mingle?.meetDateTime) : "시간 미정";
-              const placeNameText = row?.mingle?.placeName || "장소 미정";
+              const meetAtText = row?.mingle?.meetDateTime ? toRelativeTimeLabel(row?.mingle?.meetDateTime, locale) : tx("시간 미정", "Time TBD");
+              const placeNameText = row?.mingle?.placeName || tx("장소 미정", "Place TBD");
               const targetCount = Number(row?.mingle?.targetParticipantCount);
               const wantedCount = Number.isFinite(targetCount) && targetCount > 0 ? targetCount : null;
               const currentCount = row?.minglers?.length ?? 0;
-              const totalCountLabel = wantedCount ? `${toTargetCountLabel(wantedCount)}명` : null;
+              const totalCountLabel = wantedCount ? `${toTargetCountLabel(wantedCount)}${tx("명", "")}` : null;
 
               return (
                 <Pressable
@@ -584,22 +586,22 @@ export function Nearby({ route }) {
                   onPress={() => setSelectedMingleId(row?.mingle?.id)}
                 >
                   <View style={styles.cardBody}>
-                    <Text style={styles.name}>{row?.mingle?.title || "제목 없음"}</Text>
-                    <Text style={styles.meta}>{toRelativeTimeLabel(row?.mingle?.createdDateTime)}</Text>
+                    <Text style={styles.name}>{row?.mingle?.title || tx("제목 없음", "Untitled")}</Text>
+                    <Text style={styles.meta}>{toRelativeTimeLabel(row?.mingle?.createdDateTime, locale)}</Text>
                     <Text style={styles.description} numberOfLines={2}>
-                      {row?.mingle?.description || "같이할 밍글러를 기다리고 있어요."}
+                      {row?.mingle?.description || tx("같이할 밍글러를 기다리고 있어요.", "Looking for minglers to join.")}
                     </Text>
                     <Text style={styles.placeText}>📍 {placeNameText}</Text>
                     <Text style={styles.meetText}>🕒 {meetAtText}</Text>
-                    {wantedCount ? <Text style={styles.countText}>인원 {currentCount}/{totalCountLabel}</Text> : null}
-                    {!wantedCount ? <Text style={styles.countText}>참여 중 {minglerCount}명</Text> : null}
+                    {wantedCount ? <Text style={styles.countText}>{tx("인원", "People")} {currentCount}/{totalCountLabel}</Text> : null}
+                    {!wantedCount ? <Text style={styles.countText}>{tx("참여 중", "Joined")} {minglerCount}{tx("명", "")}</Text> : null}
                   </View>
                   <Pressable
                     style={[styles.actionButton, joined && styles.actionButtonActive]}
                     onPress={() => handleToggleJoin(row?.mingle?.id)}
                   >
                     <Text style={[styles.actionButtonText, joined && styles.actionButtonTextActive]}>
-                      {joined ? "취소" : "참여"}
+                      {joined ? tx("취소", "Leave") : tx("참여", "Join")}
                     </Text>
                   </Pressable>
                 </Pressable>
@@ -609,25 +611,25 @@ export function Nearby({ route }) {
         ) : null}
 
         {!loading && !error && filteredGroupRows.length === 0 ? (
-          <Text style={styles.infoText}>표시할 항목이 없습니다.</Text>
+          <Text style={styles.infoText}>{tx("표시할 항목이 없습니다.", "Nothing to show.")}</Text>
         ) : null}
       </ScrollView>
 
       <Modal visible={drawerVisible} transparent animationType="slide" onRequestClose={() => setDrawerVisible(false)}>
         <View style={styles.drawerOverlay}>
           <View style={styles.drawerCard}>
-            <Text style={styles.drawerTitle}>원하는 밍글러를 만나보세요</Text>
-            <Text style={styles.drawerDescription}>로컬 밍글러 소모임 지도를 바로 확인할 수 있어요.</Text>
+            <Text style={styles.drawerTitle}>{tx("원하는 밍글러를 만나보세요", "Meet your ideal minglers")}</Text>
+            <Text style={styles.drawerDescription}>{tx("로컬 밍글러 소모임 지도를 바로 확인할 수 있어요.", "You can check the local mingle map right away.")}</Text>
             <Pressable
               style={styles.drawerPrimaryButton}
               onPress={() => {
                 setDrawerVisible(false);
               }}
             >
-              <Text style={styles.drawerPrimaryButtonText}>지도 보기</Text>
+              <Text style={styles.drawerPrimaryButtonText}>{tx("지도 보기", "View Map")}</Text>
             </Pressable>
             <Pressable style={styles.drawerSecondaryButton} onPress={() => setDrawerVisible(false)}>
-              <Text style={styles.drawerSecondaryButtonText}>닫기</Text>
+              <Text style={styles.drawerSecondaryButtonText}>{tx("닫기", "Close")}</Text>
             </Pressable>
           </View>
         </View>
@@ -636,12 +638,12 @@ export function Nearby({ route }) {
       <Modal visible={createModalVisible} transparent animationType="slide" onRequestClose={() => setCreateModalVisible(false)}>
         <View style={styles.drawerOverlay}>
           <View style={styles.drawerCard}>
-            <Text style={styles.drawerTitle}>새 밍글 만들기</Text>
+            <Text style={styles.drawerTitle}>{tx("새 밍글 만들기", "Create New Mingle")}</Text>
             <TextInput
               style={styles.formInput}
               value={createForm.title}
               onChangeText={(value) => setCreateForm((prev) => ({ ...prev, title: value }))}
-              placeholder="제목 (필수)"
+              placeholder={tx("제목 (필수)", "Title (Required)")}
             />
             <TextInput
               style={styles.formInput}
@@ -655,10 +657,10 @@ export function Nearby({ route }) {
                   longitude: null,
                 }));
               }}
-              placeholder="어디서 만날까요? (선택)"
+              placeholder={tx("어디서 만날까요? (선택)", "Where to meet? (Optional)")}
             />
             {placeSearchLoading || placeDetailLoading ? (
-              <Text style={styles.placeHelperText}>장소를 찾는 중...</Text>
+              <Text style={styles.placeHelperText}>{tx("장소를 찾는 중...", "Searching places...")}</Text>
             ) : null}
             {placeSearchError ? <Text style={styles.placeErrorText}>{placeSearchError}</Text> : null}
             {placeSuggestions.length > 0 ? (
@@ -683,18 +685,18 @@ export function Nearby({ route }) {
             ) : null}
             {Number.isFinite(createForm.latitude) && Number.isFinite(createForm.longitude) ? (
               <Text style={styles.placeHelperText}>
-                선택된 위치: {createForm.latitude.toFixed(5)}, {createForm.longitude.toFixed(5)}
+                {tx("선택된 위치", "Selected")}: {createForm.latitude.toFixed(5)}, {createForm.longitude.toFixed(5)}
               </Text>
             ) : null}
             <Pressable style={styles.dateTimeField} onPress={openDateTimeModal}>
               <View style={styles.dateTimeFieldTextWrap}>
-                <Text style={styles.dateTimeFieldLabel}>언제 만날까요?</Text>
-                <Text style={styles.dateTimeFieldValue}>{toMeetDateTimeLabel(createForm.meetDateTime)}</Text>
+                <Text style={styles.dateTimeFieldLabel}>{tx("언제 만날까요?", "When to meet?")}</Text>
+                <Text style={styles.dateTimeFieldValue}>{toMeetDateTimeLabel(createForm.meetDateTime, locale)}</Text>
               </View>
               <Ionicons name="calendar-outline" size={18} color="#1C73F0" />
             </Pressable>
             <View style={styles.targetCountWrap}>
-              <Text style={styles.targetCountLabel}>총 인원</Text>
+              <Text style={styles.targetCountLabel}>{tx("총 인원", "Total Count")}</Text>
               <View style={styles.targetCountRow}>
                 {TARGET_PARTICIPANT_OPTIONS.map((count) => {
                   const selected = Number(createForm.targetParticipantCount) === count;
@@ -706,7 +708,7 @@ export function Nearby({ route }) {
                       onPress={() => setCreateForm((prev) => ({ ...prev, targetParticipantCount: count }))}
                     >
                       <Text style={[styles.targetCountChipText, selected && styles.targetCountChipTextActive]}>
-                        {label}명
+                        {label}{tx("명", "")}
                       </Text>
                     </Pressable>
                   );
@@ -717,7 +719,7 @@ export function Nearby({ route }) {
               style={[styles.formInput, styles.formInputMultiline]}
               value={createForm.description}
               onChangeText={(value) => setCreateForm((prev) => ({ ...prev, description: value }))}
-              placeholder="설명 (선택)"
+              placeholder={tx("설명 (선택)", "Description (Optional)")}
               multiline
             />
             <Pressable
@@ -725,10 +727,10 @@ export function Nearby({ route }) {
               onPress={handleCreateMingle}
               disabled={createSubmitting}
             >
-              <Text style={styles.drawerPrimaryButtonText}>{createSubmitting ? "생성 중..." : "밍글 생성"}</Text>
+              <Text style={styles.drawerPrimaryButtonText}>{createSubmitting ? tx("생성 중...", "Creating...") : tx("밍글 생성", "Create Mingle")}</Text>
             </Pressable>
             <Pressable style={styles.drawerSecondaryButton} onPress={() => setCreateModalVisible(false)} disabled={createSubmitting}>
-              <Text style={styles.drawerSecondaryButtonText}>취소</Text>
+              <Text style={styles.drawerSecondaryButtonText}>{tx("취소", "Cancel")}</Text>
             </Pressable>
           </View>
         </View>
@@ -737,7 +739,7 @@ export function Nearby({ route }) {
       <Modal visible={dateTimeModalVisible} transparent animationType="fade" onRequestClose={() => setDateTimeModalVisible(false)}>
         <View style={styles.drawerOverlay}>
           <View style={styles.dateTimeModalCard}>
-            <Text style={styles.drawerTitle}>날짜와 시간 선택</Text>
+            <Text style={styles.drawerTitle}>{tx("날짜와 시간 선택", "Pick Date & Time")}</Text>
             <Calendar
               current={toCalendarDateKey(dateTimeDraft)}
               markedDates={{
@@ -755,7 +757,7 @@ export function Nearby({ route }) {
             />
             <View style={styles.timeAdjustWrap}>
               <View style={styles.timeAdjustCard}>
-                <Text style={styles.timeAdjustLabel}>시</Text>
+                <Text style={styles.timeAdjustLabel}>{tx("시", "Hour")}</Text>
                 <View style={styles.timeAdjustRow}>
                   <Pressable style={styles.timeAdjustButton} onPress={() => adjustDraftHour(-1)}>
                     <Ionicons name="remove" size={16} color="#334155" />
@@ -767,7 +769,7 @@ export function Nearby({ route }) {
                 </View>
               </View>
               <View style={styles.timeAdjustCard}>
-                <Text style={styles.timeAdjustLabel}>분</Text>
+                <Text style={styles.timeAdjustLabel}>{tx("분", "Minute")}</Text>
                 <View style={styles.timeAdjustRow}>
                   <Pressable style={styles.timeAdjustButton} onPress={() => adjustDraftMinute(-30)}>
                     <Ionicons name="remove" size={16} color="#334155" />
@@ -780,10 +782,10 @@ export function Nearby({ route }) {
               </View>
             </View>
             <Pressable style={styles.drawerPrimaryButton} onPress={confirmDateTimeSelection}>
-              <Text style={styles.drawerPrimaryButtonText}>적용</Text>
+              <Text style={styles.drawerPrimaryButtonText}>{tx("적용", "Apply")}</Text>
             </Pressable>
             <Pressable style={styles.drawerSecondaryButton} onPress={() => setDateTimeModalVisible(false)}>
-              <Text style={styles.drawerSecondaryButtonText}>취소</Text>
+              <Text style={styles.drawerSecondaryButtonText}>{tx("취소", "Cancel")}</Text>
             </Pressable>
           </View>
         </View>
