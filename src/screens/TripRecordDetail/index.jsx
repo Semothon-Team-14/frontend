@@ -206,6 +206,7 @@ export function TripRecordDetail({ navigation, route }) {
       );
 
       const mappedCompanions = allCompanionIds
+        .filter((companionId) => Number(companionId) !== Number(userId))
         .map((companionId) => {
           const companion = usersById[companionId];
           return {
