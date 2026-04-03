@@ -355,6 +355,9 @@ export function MyPage({ navigation }) {
             const safeTripId = Number(trip?.id || 0);
             const recentTripChatAvatars = getRecentTripChatAvatars(trip);
             const cardImageUrl = tripCity?.representativeImageUrl || null;
+            const profileImageAvatars = recentTripChatAvatars
+              .filter((avatar) => Boolean(avatar?.imageUrl))
+              .slice(0, 3);
             return (
               <Pressable
                 key={trip.id}
@@ -376,18 +379,14 @@ export function MyPage({ navigation }) {
                       <Ionicons name="chevron-forward" size={18} color="#111111" />
                     </Pressable>
                   </View>
-                  {recentTripChatAvatars.length > 0 ? (
+                  {profileImageAvatars.length > 0 ? (
                     <View style={styles.tripAvatarRow}>
-                      {recentTripChatAvatars.map((avatar, index) => (
+                      {profileImageAvatars.map((avatar, index) => (
                         <View
                           key={`${trip.id}-${avatar.userId}`}
                           style={[styles.tripAvatarCircle, index > 0 && styles.tripAvatarOverlap]}
                         >
-                          {avatar.imageUrl ? (
-                            <Image source={{ uri: avatar.imageUrl }} style={styles.tripAvatarImage} />
-                          ) : (
-                            <Text style={styles.tripAvatarFallbackText}>{avatar.fallbackText}</Text>
-                          )}
+                          <Image source={{ uri: avatar.imageUrl }} style={styles.tripAvatarImage} />
                         </View>
                       ))}
                     </View>
@@ -521,11 +520,10 @@ const styles = StyleSheet.create({
   tripCard: {
     backgroundColor: "#DCE6F8",
     borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 15,
     overflow: "hidden",
     position: "relative",
     borderWidth: 0,
+    minHeight: 136,
   },
   tripCardBackgroundImage: {
     ...StyleSheet.absoluteFillObject,
@@ -534,14 +532,16 @@ const styles = StyleSheet.create({
   },
   tripCardOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15,23,42,0.12)",
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
   tripCardOverlayWithImage: {
-    backgroundColor: "rgba(15,23,42,0.18)",
+    backgroundColor: "rgba(255,255,255,0.28)",
   },
   tripCardContent: {
     position: "relative",
     zIndex: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 15,
   },
   tripHead: {
     flexDirection: "row",
@@ -589,11 +589,6 @@ const styles = StyleSheet.create({
   tripAvatarImage: {
     width: "100%",
     height: "100%",
-  },
-  tripAvatarFallbackText: {
-    color: "#1D4ED8",
-    fontSize: 10,
-    fontWeight: "700",
   },
   emptyText: {
     color: "#888888",
