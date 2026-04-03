@@ -3,7 +3,7 @@ import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, 
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
-import { fetchChatMessages, fetchChatRoom, fetchUsers } from "../../services";
+import { fetchChatMessages, fetchChatRoom, fetchUsers, markChatRoomAsRead } from "../../services";
 import { createChatSocketClient, sendChatRoomMessage, subscribeChatRoom } from "../../services/chatSocketService";
 
 function formatClock(value) {
@@ -45,6 +45,18 @@ export function ChatRoom({ navigation, route }) {
   const [socketReady, setSocketReady] = useState(false);
   const [error, setError] = useState(null);
   const [socketError, setSocketError] = useState(null);
+
+  const markAsReadSilently = useCallback(async () => {
+    if (!Number.isFinite(chatRoomId) || chatRoomId <= 0) {
+      return;
+    }
+
+    try {
+      await markChatRoomAsRead(chatRoomId);
+    } catch {
+      // Keep the chat UI responsive even if read-sync fails transiently.
+    }
+  }, [chatRoomId]);
 
   const roomTitle = useMemo(() => {
     if (!chatRoom) {
@@ -114,6 +126,13 @@ export function ChatRoom({ navigation, route }) {
     if (!Number.isFinite(chatRoomId) || chatRoomId <= 0) {
       return;
     }
+    markAsReadSilently();
+  }, [chatRoomId, markAsReadSilently]);
+
+  useEffect(() => {
+    if (!Number.isFinite(chatRoomId) || chatRoomId <= 0) {
+      return;
+    }
 
     const client = createChatSocketClient({
       onConnect: () => {
@@ -147,13 +166,16 @@ export function ChatRoom({ navigation, route }) {
     subscriptionRef.current?.unsubscribe();
     subscriptionRef.current = subscribeChatRoom(clientRef.current, chatRoomId, (message) => {
       setMessages((prev) => uniqueMessages([...prev, message]));
+      if (message?.senderUserId && Number(message.senderUserId) !== Number(userId)) {
+        markAsReadSilently();
+      }
     });
 
     return () => {
       subscriptionRef.current?.unsubscribe();
       subscriptionRef.current = null;
     };
-  }, [chatRoomId, socketReady]);
+  }, [chatRoomId, socketReady, markAsReadSilently, userId]);
 
   useEffect(() => {
     if (messages.length === 0) {
