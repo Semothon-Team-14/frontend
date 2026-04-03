@@ -36,23 +36,20 @@ export function pickCurrentTrip(trips) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const activeTrip = trips.find((trip) => {
-    const start = normalizeDate(trip?.startDate);
-    const end = normalizeDate(trip?.endDate);
-    if (!start || !end) {
-      return false;
-    }
+  const overlappingTrips = trips
+    .filter((trip) => {
+      const start = normalizeDate(trip?.startDate);
+      const end = normalizeDate(trip?.endDate);
+      if (!start || !end) {
+        return false;
+      }
+      return start <= today && end >= today;
+    })
+    .sort((a, b) => {
+      const aStart = normalizeDate(a?.startDate);
+      const bStart = normalizeDate(b?.startDate);
+      return (bStart?.getTime() || 0) - (aStart?.getTime() || 0);
+    });
 
-    return start <= today && end >= today;
-  });
-
-  if (activeTrip) {
-    return activeTrip;
-  }
-
-  return [...trips].sort((a, b) => {
-    const aStart = normalizeDate(a?.startDate);
-    const bStart = normalizeDate(b?.startDate);
-    return (bStart?.getTime() || 0) - (aStart?.getTime() || 0);
-  })[0] || null;
+  return overlappingTrips[0] || null;
 }
