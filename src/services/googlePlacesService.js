@@ -1,4 +1,4 @@
-const GOOGLE_PLACES_API_BASE_URL = "https://maps.googleapis.com/maps/api/place";
+const GOOGLE_PLACES_API_BASE_URL = "https://places.googleapis.com/v1";
 
 function getGooglePlacesApiKey() {
   return String(process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || "").trim();
@@ -14,30 +14,47 @@ function requireApiKey() {
 }
 
 function toPredictionItem(prediction) {
-  if (!prediction?.place_id) {
+  const placeId = prediction?.placeId;
+  const text = String(prediction?.text?.text || "").trim();
+  if (!placeId || !text) {
     return null;
   }
 
+  const [primaryText, ...secondaryParts] = text
+    .split(",")
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+
   return {
-    placeId: prediction.place_id,
-    primaryText:
-      prediction?.structured_formatting?.main_text ||
-      prediction?.description ||
-      "",
-    secondaryText:
-      prediction?.structured_formatting?.secondary_text || "",
-    description: prediction?.description || "",
+    placeId,
+    primaryText: primaryText || text,
+    secondaryText: secondaryParts.join(", "),
+    description: text,
   };
 }
 
-async function requestJson(path, params) {
-  const url = `${GOOGLE_PLACES_API_BASE_URL}/${path}?${params.toString()}`;
-  const response = await fetch(url);
+async function requestJson({ path, method = "GET", params, body, fieldMask }) {
+  const url = params
+    ? `${GOOGLE_PLACES_API_BASE_URL}/${path}?${params.toString()}`
+    : `${GOOGLE_PLACES_API_BASE_URL}/${path}`;
+  const key = requireApiKey();
+  const response = await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": key,
+      ...(fieldMask ? { "X-Goog-FieldMask": fieldMask } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error("Google Places request failed.");
+    throw new Error(
+      data?.error?.message || "Google Places request failed.",
+    );
   }
 
-  return response.json();
+  return data;
 }
 
 export async function searchGooglePlaces({
@@ -51,24 +68,21 @@ export async function searchGooglePlaces({
     return [];
   }
 
-  const key = requireApiKey();
-  const params = new URLSearchParams({
-    key,
-    input: cityName ? `${query} ${cityName}` : query,
-    language,
-    types: "establishment",
+  const data = await requestJson({
+    path: "places:autocomplete",
+    method: "POST",
+    fieldMask:
+      "suggestions.placePrediction.placeId,suggestions.placePrediction.text",
+    body: {
+      input: cityName ? `${query} ${cityName}` : query,
+      languageCode: language,
+      ...(sessionToken ? { sessionToken } : {}),
+    },
   });
-  if (sessionToken) {
-    params.set("sessiontoken", sessionToken);
-  }
 
-  const data = await requestJson("autocomplete/json", params);
-  const status = String(data?.status || "");
-  if (status !== "OK" && status !== "ZERO_RESULTS") {
-    throw new Error(data?.error_message || "Google Places autocomplete failed.");
-  }
-
-  return (data?.predictions || []).map(toPredictionItem).filter(Boolean);
+  return (data?.suggestions || [])
+    .map((item) => toPredictionItem(item?.placePrediction))
+    .filter(Boolean);
 }
 
 export async function fetchGooglePlaceDetails({
@@ -81,34 +95,29 @@ export async function fetchGooglePlaceDetails({
     throw new Error("placeId is required.");
   }
 
-  const key = requireApiKey();
   const params = new URLSearchParams({
-    key,
-    place_id: normalizedPlaceId,
-    language,
-    fields: "name,formatted_address,geometry/location,place_id",
+    languageCode: language,
   });
   if (sessionToken) {
-    params.set("sessiontoken", sessionToken);
+    params.set("sessionToken", sessionToken);
   }
 
-  const data = await requestJson("details/json", params);
-  const status = String(data?.status || "");
-  if (status !== "OK") {
-    throw new Error(data?.error_message || "Google Places details failed.");
-  }
-
-  const result = data?.result;
-  const latitude = Number(result?.geometry?.location?.lat);
-  const longitude = Number(result?.geometry?.location?.lng);
+  const data = await requestJson({
+    path: `places/${encodeURIComponent(normalizedPlaceId)}`,
+    method: "GET",
+    params,
+    fieldMask: "id,displayName,formattedAddress,location",
+  });
+  const latitude = Number(data?.location?.latitude);
+  const longitude = Number(data?.location?.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     throw new Error("Google Places details did not include valid coordinates.");
   }
 
   return {
-    placeId: result?.place_id || normalizedPlaceId,
-    name: result?.name || "",
-    formattedAddress: result?.formatted_address || "",
+    placeId: data?.id || normalizedPlaceId,
+    name: data?.displayName?.text || "",
+    formattedAddress: data?.formattedAddress || "",
     latitude,
     longitude,
   };
