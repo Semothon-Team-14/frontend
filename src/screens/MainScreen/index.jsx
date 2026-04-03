@@ -21,6 +21,7 @@ import Position from "../../icons/position.svg";
 import Direction from "../../icons/direction.svg";
 import Quick from "../../icons/quick.svg";
 import Speech from "../../icons/speech.svg";
+import ApplicationLogo from "../../images/application_logo.svg";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
@@ -636,11 +637,7 @@ export function MainScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
           <View style={styles.homeModeLogoButton}>
-            <Image
-              source={require("../../images/home_mode_logo.png")}
-              style={styles.homeModeLogoImage}
-              resizeMode="contain"
-            />
+            <ApplicationLogo width={42} height={42} style={styles.homeModeLogoImage} />
           </View>
           <View style={styles.topIcons}>
             <Alarm />
@@ -1099,8 +1096,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   homeModeLogoImage: {
-    width: 32,
-    height: 32,
+    width: 42,
+    height: 42,
   },
   topIcons: {
     flexDirection: "row",
