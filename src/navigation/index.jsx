@@ -12,6 +12,7 @@ import { MyPage } from "../screens/MyPage/index.jsx";
 import { BookMark } from "../screens/BookMark/index.jsx";
 import { Nearby } from "../screens/Nearby/index.jsx";
 import { QuickMatch } from "../screens/QuickMatch/index.jsx";
+import { ChatRoom } from "../screens/ChatRoom/index.jsx";
 import { NotFound } from "../screens/NotFound/index.jsx";
 import { CreateTrip } from "../screens/CreateTrip";
 import { ProfileEdit } from "../screens/ProfileEdit";
@@ -83,6 +84,7 @@ function AppStack() {
       <Stack.Screen name="Tabs" component={TabsNavigator} />
       <Stack.Screen name="Nearby" component={Nearby} />
       <Stack.Screen name="QuickMatch" component={QuickMatch} />
+      <Stack.Screen name="ChatRoom" component={ChatRoom} />
       <Stack.Screen name="CreateTrip" component={CreateTrip} />
       <Stack.Screen name="ProfileEdit" component={ProfileEdit} />
       <Stack.Screen
