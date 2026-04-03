@@ -90,3 +90,28 @@
 - Save notes must be stored under `save-notes/`, not in the repository root.
 - The save note filename must use Korea Standard Time in `YYYYMMDDHHmm.md` format.
 - Save notes should be concise and practical for teammates continuing the work.
+
+## Active Frontend Notes (2026-04)
+
+- UI direction follows `../figma.pdf` for finalized views with strict parity.
+- Home supports traveler/local mode split; local mode focuses on mingle map.
+- Nearby/Mingle flow supports:
+- place search + place details,
+- date/time picking,
+- target participant count.
+- Quick Match flow uses real-time socket events and direct chat-room handoff after accept.
+- Chat list supports unread badge count.
+- Trip cards use city representative image background and companion profile avatars.
+
+## Mandatory Translation Rule
+
+- Every user-facing Korean text in implemented UI must have natural English translation.
+- Static text must use locale helpers (`tx(...)`) instead of hardcoded single-language strings.
+- DB-driven display values (keywords/city names/etc.) must use English fields when locale is not Korean.
+- English layout fit is required; adjust sizing/spacing for parity.
+
+## Frontend Next Steps
+
+1. Continue untranslated-string sweep across all screens, modals, drawers, and banners.
+2. Verify all finalized Figma screens match spacing/flow exactly after each feature patch.
+3. Keep temporary UX only for non-finalized Figma areas; replace once finalized design is available.
