@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   ImageBackground,
   Pressable,
   ScrollView,
@@ -327,6 +328,7 @@ export function MainScreen() {
       setCurrentTrip(trip);
       setTripCity(nextTripCity);
       setLocalCity(nextLocalCity);
+      setHomeMode(nextLocalCity ? HOME_MODE_LOCAL : HOME_MODE_TRAVELER);
       setPlacesByType({ restaurant: [], cafe: [] });
       setPlaces([]);
       setPlaceError(null);
@@ -341,6 +343,7 @@ export function MainScreen() {
       setCurrentTrip(null);
       setTripCity(null);
       setLocalCity(null);
+      setHomeMode(HOME_MODE_TRAVELER);
       setPlaces([]);
       setPlacesByType({ restaurant: [], cafe: [] });
       setPlaceLoading(false);
@@ -463,12 +466,16 @@ export function MainScreen() {
     () => resolveCityCenter(selectedCity, placesByType),
     [placesByType, selectedCity],
   );
+  const selectedCityCenter = useMemo(
+    () => resolveCityCenter(selectedCity, { restaurant: [], cafe: [] }),
+    [selectedCity],
+  );
   const localMarkers = useMemo(() => {
     return localMingleRows
       .map((row) => {
-        const latitude = Number(row?.mingle?.latitude);
-        const longitude = Number(row?.mingle?.longitude);
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        const latitude = toCoordinateValue(row?.mingle?.latitude);
+        const longitude = toCoordinateValue(row?.mingle?.longitude);
+        if (!isValidCoordinatePair(latitude, longitude)) {
           return null;
         }
 
@@ -482,12 +489,21 @@ export function MainScreen() {
       .filter(Boolean);
   }, [localMingleRows, tx]);
   const localMapRegion = useMemo(() => {
+    if (selectedCityCenter) {
+      return {
+        latitude: selectedCityCenter.latitude,
+        longitude: selectedCityCenter.longitude,
+        latitudeDelta: 0.035,
+        longitudeDelta: 0.035,
+      };
+    }
+
     if (localMarkers.length > 0) {
       return {
         latitude: localMarkers[0].coordinate.latitude,
         longitude: localMarkers[0].coordinate.longitude,
-        latitudeDelta: 0.08,
-        longitudeDelta: 0.08,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
       };
     }
 
@@ -497,7 +513,7 @@ export function MainScreen() {
       latitudeDelta: 0.25,
       longitudeDelta: 0.25,
     };
-  }, [localMarkers]);
+  }, [localMarkers, selectedCityCenter]);
 
   return (
     <View style={styles.mainContainer}>
@@ -512,45 +528,47 @@ export function MainScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.modeToggleRow}>
-          <Pressable
-            style={[
-              styles.modeToggleButton,
-              homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive,
-            ]}
-            onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
-          >
-            <Text
+        {homeMode !== HOME_MODE_LOCAL ? (
+          <View style={styles.modeToggleRow}>
+            <Pressable
               style={[
-                styles.modeToggleText,
-                homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive,
+                styles.modeToggleButton,
+                homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive,
               ]}
+              onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
             >
-              {tx("여행자", "Traveler")}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.modeToggleButton,
-              homeMode === HOME_MODE_LOCAL && styles.modeToggleButtonActive,
-            ]}
-            onPress={() => setHomeMode(HOME_MODE_LOCAL)}
-          >
-            <Text
+              <Text
+                style={[
+                  styles.modeToggleText,
+                  homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive,
+                ]}
+              >
+                {tx("여행자", "Traveler")}
+              </Text>
+            </Pressable>
+            <Pressable
               style={[
-                styles.modeToggleText,
-                homeMode === HOME_MODE_LOCAL && styles.modeToggleTextActive,
+                styles.modeToggleButton,
+                homeMode === HOME_MODE_LOCAL && styles.modeToggleButtonActive,
               ]}
+              onPress={() => setHomeMode(HOME_MODE_LOCAL)}
             >
-              {tx("로컬", "Local")}
-            </Text>
-          </Pressable>
-        </View>
+              <Text
+                style={[
+                  styles.modeToggleText,
+                  homeMode === HOME_MODE_LOCAL && styles.modeToggleTextActive,
+                ]}
+              >
+                {tx("로컬", "Local")}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <View style={styles.locationSection}>
-          <View style={[styles.badge, !quickMatchEnabled && styles.badgeOff]}>
+          <View style={styles.badge}>
             <Text style={styles.badgeText}>
-              {quickMatchEnabled ? "Now" : "Off"}
+              Home
             </Text>
           </View>
           <View style={styles.locationRow}>
@@ -564,86 +582,101 @@ export function MainScreen() {
           </Text>
         </View>
 
-        {homeMode === HOME_MODE_TRAVELER ? (
-          <View style={styles.quickRow}>
+        <View style={styles.quickRow}>
+          <TouchableWithoutFeedback
+            onPress={() =>
+              navigation.navigate("Nearby", {
+                cityId: selectedCity?.id,
+                cityName:
+                  selectedCityDisplayName ||
+                  "",
+                cityLatitude: nearbyCityCenter?.latitude ?? null,
+                cityLongitude: nearbyCityCenter?.longitude ?? null,
+              })
+            }
+          >
+            <View style={styles.nearbyCard}>
+              <ImageBackground
+                source={require("../../images/nearbyCardImage.jpg")}
+                style={StyleSheet.absoluteFill}
+                imageStyle={{ borderRadius: 22 }}
+              />
+              <LinearGradient
+                colors={["rgba(1, 105, 254, 0.55)", "rgb(1, 105, 254)"]}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.quickCardHeader}>
+                <Text style={styles.nearbyTitle}>
+                  {homeMode === HOME_MODE_LOCAL ? tx("야호호 밍글러", "Yahoho Mingler") : tx("근처 밍글러", "Nearby Minglers")}
+                </Text>
+                <Direction width={18} height={18} />
+              </View>
+              <Text style={styles.nearbyMetaText}>
+                {currentTrip?.startDate
+                  ? new Intl.DateTimeFormat(isKorean ? "ko-KR" : "en-US", {
+                      weekday: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(currentTrip.startDate))
+                  : tx("토 · 09:30", "Sat · 09:30")}
+              </Text>
+              <View style={styles.localHeroChipRow}>
+                <View style={styles.localHeroChip}>
+                  <Text style={styles.localHeroChipText}>#짬뽕박사</Text>
+                </View>
+                <View style={styles.localHeroChip}>
+                  <Text style={styles.localHeroChipText}>#덕후</Text>
+                </View>
+                <View style={styles.localHeroPlusChip}>
+                  <Text style={styles.localHeroPlusChipText}>+</Text>
+                </View>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+
+          <View style={styles.rightQuickStack}>
             <TouchableWithoutFeedback
               onPress={() =>
-                navigation.navigate("Nearby", {
+                quickMatchEnabled &&
+                navigation.navigate("QuickMatch", {
                   cityId: selectedCity?.id,
-                  cityName:
-                    selectedCityDisplayName ||
-                    "",
-                  cityLatitude: nearbyCityCenter?.latitude ?? null,
-                  cityLongitude: nearbyCityCenter?.longitude ?? null,
                 })
               }
             >
-              <View style={styles.nearbyCard}>
-                <ImageBackground
-                  source={require("../../images/nearbyCardImage.jpg")}
-                  style={StyleSheet.absoluteFill}
-                  imageStyle={{ borderRadius: 22 }}
-                />
-                <LinearGradient
-                  colors={["rgba(1, 105, 254, 0.5)", "rgb(1, 105, 254)"]}
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={styles.quickCardHeader}>
-                <Text style={styles.nearbyTitle}>{tx("근처 밍글러", "Nearby Minglers")}</Text>
-                  <Direction width={18} height={18} />
-                </View>
-                <Text style={styles.nearbyBody}>
-                  {currentTrip?.title
-                    ? tx(`${currentTrip.title} 같이 하실 분`, `${currentTrip.title} companions`)
-                    : tx("여행자를 만나보세요", "Meet travelers")}
+              <View
+                style={[
+                  styles.quickButtonCard,
+                  !quickMatchEnabled && styles.quickButtonCardDisabled,
+                ]}
+              >
+                <Quick />
+                <Text
+                  style={[
+                    styles.quickButtonText,
+                    !quickMatchEnabled && styles.quickButtonTextDisabled,
+                  ]}
+                >
+                  {quickMatchEnabled
+                    ? tx("빠른 매칭", "Quick Match")
+                    : tx("지금은 사용할 수 없어요.", "Not available now.")}
                 </Text>
               </View>
             </TouchableWithoutFeedback>
-
-            <View style={styles.rightQuickStack}>
-              <TouchableWithoutFeedback
-                onPress={() =>
-                  quickMatchEnabled &&
-                  navigation.navigate("QuickMatch", {
-                    cityId: selectedCity?.id,
-                  })
-                }
-              >
-                <View
-                  style={[
-                    styles.quickButtonCard,
-                    !quickMatchEnabled && styles.quickButtonCardDisabled,
-                  ]}
-                >
-                  <Quick />
-                  <Text
-                    style={[
-                      styles.quickButtonText,
-                      !quickMatchEnabled && styles.quickButtonTextDisabled,
-                    ]}
-                  >
-                    {quickMatchEnabled
-                      ? tx("빠른 매칭", "Quick Match")
-                      : tx("지금은 사용할 수 없어요.", "Not available now.")}
-                  </Text>
-                </View>
-              </TouchableWithoutFeedback>
-              <TouchableWithoutFeedback
-                onPress={() => navigation.navigate("Chats")}
-              >
-                <View style={styles.quickButtonCard}>
-                  <View style={styles.communityIconWrap}>
-                    <Speech />
-                    <View style={styles.communityBadge}>
-                      <Text style={styles.communityBadgeText}>2</Text>
-                    </View>
+            <TouchableWithoutFeedback
+              onPress={() => navigation.navigate("Chats")}
+            >
+              <View style={styles.quickButtonCard}>
+                <View style={styles.communityIconWrap}>
+                  <Speech />
+                  <View style={styles.communityBadge}>
+                    <Text style={styles.communityBadgeText}>2</Text>
                   </View>
-                  <Text style={styles.quickButtonText}>{tx("로컬 커뮤니티", "Local Community")}</Text>
                 </View>
-              </TouchableWithoutFeedback>
-            </View>
+                <Text style={styles.quickButtonText}>{tx("로컬 커뮤니티", "Local Community")}</Text>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        ) : null}
+        </View>
 
         {homeMode === HOME_MODE_TRAVELER ? (
           <View style={styles.sectionHeader}>
@@ -746,13 +779,13 @@ export function MainScreen() {
         ) : null}
 
         {homeMode === HOME_MODE_LOCAL ? (
+          <View style={styles.sectionHeaderLocal}>
+            <Text style={styles.sectionTitle}>{tx("나의 밍글", "My Mingles")}</Text>
+          </View>
+        ) : null}
+
+        {homeMode === HOME_MODE_LOCAL ? (
           <View style={styles.localMapPanel}>
-            <View style={styles.localMapHeader}>
-              <Text style={styles.localMapTitle}>{tx("현재 밍글 지도", "Live Mingle Map")}</Text>
-              <Text style={styles.localMapSubtitle}>
-                {selectedCity?.name || tx("도시를 설정해주세요.", "Set a city.")}
-              </Text>
-            </View>
             {localMingleLoading ? (
               <View style={styles.pendingWrap}>
                 <ActivityIndicator size="small" color="#1C73F0" />
@@ -774,7 +807,9 @@ export function MainScreen() {
                     coordinate={marker.coordinate}
                     title={marker.title}
                     description={tx(`참여 ${marker.minglerCount}명`, `${marker.minglerCount} joined`)}
-                  />
+                  >
+                    <Image source={require("../../images/mingle_marker_selected.png")} style={styles.localMarkerImage} />
+                  </Marker>
                 ))}
               </MapView>
             ) : null}
@@ -785,14 +820,22 @@ export function MainScreen() {
                 {tx("표시할 밍글 좌표가 없습니다.", "No mingle coordinates to show.")}
               </Text>
             ) : null}
+            <Pressable
+              style={styles.localMapFloatingPlus}
+              onPress={() =>
+                navigation.navigate("Nearby", {
+                  cityId: selectedCity?.id,
+                  cityName: selectedCityDisplayName || "",
+                  cityLatitude: nearbyCityCenter?.latitude ?? null,
+                  cityLongitude: nearbyCityCenter?.longitude ?? null,
+                })
+              }
+            >
+              <Ionicons name="add" size={30} color="#fff" />
+            </Pressable>
           </View>
         ) : null}
       </ScrollView>
-      <View style={styles.floatingButtonContainer}>
-        <Pressable style={styles.floatingPlusButton} onPress={loadHome}>
-          <Ionicons name="add" size={30} color="#fff" />
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -912,6 +955,43 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 15,
     lineHeight: 22,
+  },
+  nearbyMetaText: {
+    color: "#DDEBFF",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  localHeroChipRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  localHeroChip: {
+    backgroundColor: "#F3F8FF",
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  localHeroChipText: {
+    color: "#1C73F0",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  localHeroPlusChip: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#F3F8FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  localHeroPlusChipText: {
+    color: "#1C73F0",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 14,
   },
   rightQuickStack: {
     width: 170,
@@ -1085,19 +1165,6 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.9)",
     fontSize: 11,
   },
-  floatingButtonContainer: {
-    position: "absolute",
-    bottom: 20,
-    right: 20,
-  },
-  floatingPlusButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#1C73F0",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   moreRow: {
     flexDirection: "row",
     justifyContent: "center",
@@ -1128,34 +1195,47 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
   },
+  sectionHeaderLocal: {
+    marginTop: 2,
+  },
   localMapPanel: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 12,
+    borderRadius: 20,
+    padding: 10,
     gap: 8,
-  },
-  localMapHeader: {
-    gap: 2,
-  },
-  localMapTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#101827",
-  },
-  localMapSubtitle: {
-    fontSize: 13,
-    color: "#6B7280",
-    fontWeight: "500",
+    overflow: "hidden",
+    position: "relative",
   },
   localMap: {
     width: "100%",
-    height: 260,
-    borderRadius: 14,
+    height: 300,
+    borderRadius: 18,
   },
   localMapEmptyText: {
     color: "#8A8A8A",
     fontSize: 13,
     textAlign: "center",
     paddingBottom: 4,
+  },
+  localMapFloatingPlus: {
+    position: "absolute",
+    right: 16,
+    bottom: 18,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: "#1C73F0",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#1C73F0",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  localMarkerImage: {
+    width: 26,
+    height: 26,
+    resizeMode: "contain",
   },
 });
