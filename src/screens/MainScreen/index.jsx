@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Image,
   ImageBackground,
   Pressable,
@@ -20,6 +22,7 @@ import Position from "../../icons/position.svg";
 import Direction from "../../icons/direction.svg";
 import Quick from "../../icons/quick.svg";
 import Speech from "../../icons/speech.svg";
+import HomeModeLogo from "../../icons/home_mode_logo.svg";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
@@ -180,6 +183,9 @@ export function MainScreen() {
   const [localUserProfile, setLocalUserProfile] = useState(null);
   const [localAvailableTimeText, setLocalAvailableTimeText] = useState(null);
   const placeRequestSequenceRef = useRef(0);
+  const modeLogoAnim = useRef(new Animated.Value(0)).current;
+  const contentSwitchAnim = useRef(new Animated.Value(1)).current;
+  const switchDirectionRef = useRef(1);
 
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const activePlaceType = useMemo(() => {
@@ -566,57 +572,73 @@ export function MainScreen() {
     };
   }, [localMarkers, selectedCityCenter]);
 
+  const logoRotate = modeLogoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
+  });
+  const contentTranslateX = contentSwitchAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [switchDirectionRef.current * 18, 0],
+  });
+
+  useEffect(() => {
+    Animated.timing(modeLogoAnim, {
+      toValue: homeMode === HOME_MODE_LOCAL ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [homeMode, modeLogoAnim]);
+
+  function handleToggleHomeMode() {
+    const nextMode =
+      homeMode === HOME_MODE_TRAVELER ? HOME_MODE_LOCAL : HOME_MODE_TRAVELER;
+    switchDirectionRef.current = nextMode === HOME_MODE_LOCAL ? 1 : -1;
+    contentSwitchAnim.setValue(0);
+    setHomeMode(nextMode);
+    Animated.timing(contentSwitchAnim, {
+      toValue: 1,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }
+
   return (
     <View style={styles.mainContainer}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.topIcons}>
-          <Alarm />
-          <Pressable onPress={() => navigation.navigate("ProfileEdit")}>
-            <Person />
+        <View style={styles.topBar}>
+          <Pressable
+            style={styles.homeModeLogoButton}
+            onPress={handleToggleHomeMode}
+            hitSlop={8}
+          >
+            <Animated.View
+              style={{ transform: [{ rotate: logoRotate }] }}
+            >
+              <HomeModeLogo width={36} height={36} />
+            </Animated.View>
           </Pressable>
-          <Pressable style={styles.logoutMiniButton} onPress={logout}>
-            <Text style={styles.logoutMiniButtonText}>
-              {tx("로그아웃", "Logout")}
-            </Text>
-          </Pressable>
+          <View style={styles.topIcons}>
+            <Alarm />
+            <Pressable onPress={() => navigation.navigate("ProfileEdit")}>
+              <Person />
+            </Pressable>
+            <Pressable style={styles.logoutMiniButton} onPress={logout}>
+              <Text style={styles.logoutMiniButtonText}>
+                {tx("로그아웃", "Logout")}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
-        <View style={styles.modeToggleRow}>
-          <Pressable
-            style={[
-              styles.modeToggleButton,
-              homeMode === HOME_MODE_LOCAL && styles.modeToggleButtonActive,
-            ]}
-            onPress={() => setHomeMode(HOME_MODE_LOCAL)}
-          >
-            <Text
-              style={[
-                styles.modeToggleText,
-                homeMode === HOME_MODE_LOCAL && styles.modeToggleTextActive,
-              ]}
-            >
-              {tx("홈", "Home")}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.modeToggleButton,
-              homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive,
-            ]}
-            onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
-          >
-            <Text
-              style={[
-                styles.modeToggleText,
-                homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive,
-              ]}
-            >
-              {tx("여행", "Trip")}
-            </Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.locationSection}>
+        <Animated.View
+          style={{
+            opacity: contentSwitchAnim,
+            transform: [{ translateX: contentTranslateX }],
+          }}
+        >
+          <View style={styles.locationSection}>
           <View style={styles.locationRow}>
             <Text style={styles.locationKo}>
               {selectedCityDisplayName ||
@@ -628,7 +650,7 @@ export function MainScreen() {
             {selectedCityDisplayName ||
               tx("어디로 떠나시나요?", "Where to next?")}
           </Text>
-        </View>
+          </View>
 
         {homeMode === HOME_MODE_TRAVELER ? (
           <View style={styles.quickRow}>
@@ -905,7 +927,7 @@ export function MainScreen() {
           </View>
         ) : null}
 
-        {homeMode === HOME_MODE_LOCAL ? (
+          {homeMode === HOME_MODE_LOCAL ? (
           <View style={styles.localMapPanel}>
             {localMingleLoading ? (
               <View style={styles.pendingWrap}>
@@ -966,7 +988,8 @@ export function MainScreen() {
               <Ionicons name="add" size={30} color="#fff" />
             </Pressable>
           </View>
-        ) : null}
+          ) : null}
+        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -983,36 +1006,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#f1f2f5",
     gap: 12,
   },
-  topIcons: {
+  topBar: {
     flexDirection: "row",
-    justifyContent: "flex-end",
     alignItems: "center",
-    gap: 14,
+    justifyContent: "space-between",
   },
-  modeToggleRow: {
-    flexDirection: "row",
-    backgroundColor: "#E8ECF3",
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  modeToggleButton: {
-    flex: 1,
-    height: 34,
-    borderRadius: 9,
+  homeModeLogoButton: {
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
-  modeToggleButtonActive: {
-    backgroundColor: "#FFFFFF",
-  },
-  modeToggleText: {
-    color: "#6B7280",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  modeToggleTextActive: {
-    color: "#1C73F0",
+  topIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
   },
   logoutMiniButton: {
     borderRadius: 12,
