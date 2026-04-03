@@ -124,7 +124,9 @@ export function Nearby({ route }) {
   const [groupSizeFilter, setGroupSizeFilter] = useState(GROUP_SIZE_FILTER_3);
   const [selectedMingleId, setSelectedMingleId] = useState(null);
   const [sheetExpanded, setSheetExpanded] = useState(false);
-  const [drawerVisible, setDrawerVisible] = useState(true);
+  const [drawerVisible, setDrawerVisible] = useState(
+    route?.params?.hideIdealMinglerPopup ? false : true,
+  );
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [dateTimeModalVisible, setDateTimeModalVisible] = useState(false);
