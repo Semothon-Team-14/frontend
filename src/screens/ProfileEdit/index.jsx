@@ -14,8 +14,10 @@ import { SearchDropdown } from "../../components/SearchDropdown";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import {
+  fetchLocals,
   fetchNationalities,
   fetchUser,
+  updateLocal,
   updateUser,
   uploadUserProfileImage,
 } from "../../services";
@@ -56,6 +58,8 @@ export function ProfileEdit({ navigation }) {
   });
   const [nationalityQuery, setNationalityQuery] = useState("");
   const [selectedNationality, setSelectedNationality] = useState(null);
+  const [localId, setLocalId] = useState(null);
+  const [availableTimeText, setAvailableTimeText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -66,12 +70,14 @@ export function ProfileEdit({ navigation }) {
   useEffect(() => {
     async function load() {
       try {
-        const [userResponse, nationalityResponse] = await Promise.all([
+        const [userResponse, nationalityResponse, localsResponse] = await Promise.all([
           fetchUser(userId),
           fetchNationalities(),
+          fetchLocals(),
         ]);
         const user = userResponse?.user;
         const loadedNationalities = nationalityResponse?.nationalities ?? [];
+        const latestLocal = (localsResponse?.locals ?? [])[0] || null;
         const matchedNationality =
           loadedNationalities.find(
             (item) => Number(item?.id) === Number(user?.nationalityId),
@@ -92,6 +98,8 @@ export function ProfileEdit({ navigation }) {
             ? getNationalityDisplayName(matchedNationality)
             : "",
         );
+        setLocalId(Number(latestLocal?.id || 0) || null);
+        setAvailableTimeText(String(latestLocal?.availableTimeText || ""));
       } catch {
         setError("사용자 정보를 불러오지 못했습니다.");
       }
@@ -135,6 +143,11 @@ export function ProfileEdit({ navigation }) {
         profileImageUrl: form.profileImageUrl?.trim() || null,
         nationalityId: selectedNationality?.id || null,
       });
+      if (Number(localId) > 0) {
+        await updateLocal(localId, {
+          availableTimeText: availableTimeText.trim() || null,
+        });
+      }
       navigation.goBack();
     } catch (requestError) {
       setError(requestError?.message || "프로필 저장에 실패했습니다.");
@@ -337,6 +350,18 @@ export function ProfileEdit({ navigation }) {
           onChangeText={(v) => updateField("introduction", v)}
           multiline
         />
+
+        {Number(localId) > 0 ? (
+          <>
+            <Text style={styles.label}>가능 시간</Text>
+            <TextInput
+              style={styles.input}
+              value={availableTimeText}
+              onChangeText={setAvailableTimeText}
+              placeholder="예: 토 · 09:30 ~ 21:40"
+            />
+          </>
+        ) : null}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
