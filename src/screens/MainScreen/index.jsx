@@ -960,31 +960,32 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 52,
-    paddingBottom: 16,
-    backgroundColor: "#f1f2f5",
-    gap: 12,
+    paddingBottom: 20,
+    backgroundColor: "#F1F3F7",
+    gap: 14,
   },
   topBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 2,
   },
   homeModeLogoButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   homeModeLogoImage: {
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
   },
   topIcons: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 10,
   },
   logoutMiniButton: {
     borderRadius: 12,
@@ -1001,7 +1002,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   locationSection: {
-    gap: 6,
+    gap: 4,
+    marginBottom: 2,
   },
   locationRow: {
     flexDirection: "row",
@@ -1009,18 +1011,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   locationKo: {
-    fontSize: 44 / 2,
+    fontSize: 24,
     fontWeight: "700",
     color: "#121212",
   },
   locationEn: {
-    fontSize: 14,
-    color: "#818181",
+    fontSize: 15,
+    color: "#8B93A3",
   },
   quickRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
+    gap: 12,
+    alignItems: "stretch",
   },
   localProfileCard: {
     borderRadius: 22,
@@ -1038,7 +1040,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     borderRadius: 16,
-    height: 50,
+    minHeight: 56,
     paddingHorizontal: 16,
     flexDirection: "row",
     justifyContent: "flex-start",
@@ -1046,8 +1048,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   nearbyCard: {
-    width: 170,
-    height: 170,
+    flex: 1.08,
+    minHeight: 168,
     borderRadius: 22,
     overflow: "hidden",
     padding: 14,
@@ -1106,14 +1108,14 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   rightQuickStack: {
-    width: 170,
-    gap: 10,
+    flex: 0.92,
+    gap: 12,
   },
   quickButtonCard: {
     backgroundColor: "#fff",
-    borderRadius: 20,
-    height: 80,
-    paddingHorizontal: 16,
+    borderRadius: 18,
+    minHeight: 78,
+    paddingHorizontal: 14,
     justifyContent: "center",
     gap: 6,
   },
@@ -1121,7 +1123,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#EFF2F7",
   },
   quickButtonText: {
-    fontSize: 16,
+    fontSize: 13.5,
     fontWeight: "700",
     color: "#111",
   },
@@ -1137,7 +1139,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     gap: 8,
-    marginTop: 2,
+    marginTop: 4,
   },
   sectionTitle: {
     fontSize: 36 / 2,
@@ -1151,7 +1153,7 @@ const styles = StyleSheet.create({
   },
   chipRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
   chip: {
     borderRadius: 14,
@@ -1189,17 +1191,17 @@ const styles = StyleSheet.create({
   },
   popularPanel: {
     backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 10,
-    paddingBottom: 8,
+    borderRadius: 20,
+    padding: 12,
+    paddingBottom: 10,
     position: "relative",
-    gap: 8,
+    gap: 10,
     marginBottom: 6,
   },
   placeCard: {
     borderRadius: 16,
     overflow: "hidden",
-    height: 138,
+    height: 132,
   },
   placeImage: {
     flex: 1,
@@ -1292,19 +1294,19 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   sectionHeaderLocal: {
-    marginTop: 2,
+    marginTop: 4,
   },
   localMapPanel: {
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    padding: 10,
+    padding: 12,
     gap: 8,
     overflow: "hidden",
     position: "relative",
   },
   localMap: {
     width: "100%",
-    height: 300,
+    height: 326,
     borderRadius: 18,
   },
   localMapEmptyText: {
