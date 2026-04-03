@@ -5,6 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import { CalendarDateField } from "../../components/CalendarDateField";
 import { SearchDropdown } from "../../components/SearchDropdown";
 import { useLocale } from "../../locale";
+import { fetchLocals } from "../../services/localService";
 import { fetchAllCities } from "../../services/placeService";
 import { recognizeBoardingPass } from "../../services/ticketValidationService";
 import { createTrip, fetchTrip, updateTrip } from "../../services/tripService";
@@ -149,9 +150,10 @@ export function CreateTrip({ navigation, route }) {
     async function loadInitialData() {
       setLoadingInitialData(true);
       try {
-        const [loadedCities, tripResponse] = await Promise.all([
+        const [loadedCities, tripResponse, localsResponse] = await Promise.all([
           fetchAllCities(),
           isEditMode ? fetchTrip(tripId) : Promise.resolve(null),
+          fetchLocals(),
         ]);
 
         if (!mounted) {
@@ -166,7 +168,13 @@ export function CreateTrip({ navigation, route }) {
           const trip = tripResponse?.trip ?? null;
           if (trip) {
             const matchedCity = dedupedCities.find((city) => Number(city?.id) === Number(trip?.cityId)) || null;
+            const latestLocal = [...(localsResponse?.locals ?? [])]
+              .sort((a, b) => Number(b?.id || 0) - Number(a?.id || 0))[0] || null;
+            const matchedFromCity = dedupedCities.find(
+              (city) => Number(city?.id) === Number(latestLocal?.city?.id),
+            ) || latestLocal?.city || null;
             setSelectedCity(matchedCity);
+            setFromCity(matchedFromCity);
             setTitle(String(trip?.title || ""));
             setStartDate(toDateOnly(trip?.startDate));
             setEndDate(toDateOnly(trip?.endDate));
