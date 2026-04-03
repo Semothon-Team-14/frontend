@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { CalendarDateField } from "../../../components/CalendarDateField";
 import { SearchDropdown } from "../../../components/SearchDropdown";
 import { useAuth } from "../../../auth";
-import { createLocal, createTrip, fetchAllCities, fetchKeywords } from "../../../services";
+import { createLocal, createTrip, fetchAllCities, fetchKeywords, uploadUserProfileImage } from "../../../services";
 
 const STEP_RESIDENCE = 0;
 const STEP_KEYWORDS = 1;
@@ -64,6 +65,7 @@ export function SignUpScreen({ navigation }) {
   const [selectedTripCity, setSelectedTripCity] = useState(null);
   const [tripStartDate, setTripStartDate] = useState("");
   const [tripEndDate, setTripEndDate] = useState("");
+  const [profileImageUri, setProfileImageUri] = useState("");
 
   const [profile, setProfile] = useState({
     name: "",
@@ -73,6 +75,7 @@ export function SignUpScreen({ navigation }) {
     email: "",
     phone: "",
     introduction: "",
+    profileImageUrl: "",
   });
 
   const keywordCountLabel = useMemo(() => {
@@ -176,6 +179,37 @@ export function SignUpScreen({ navigation }) {
     setVisibleKeywordCount((previous) => Math.min(previous + KEYWORD_PAGE_SIZE, keywords.length));
   }
 
+  async function handlePickProfileImage() {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        setError("사진 접근 권한을 허용해주세요.");
+        return;
+      }
+
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.85,
+        aspect: [1, 1],
+      });
+      if (picked.canceled) {
+        return;
+      }
+
+      const assetUri = picked.assets?.[0]?.uri || "";
+      if (!assetUri) {
+        setError("선택한 이미지를 불러오지 못했습니다.");
+        return;
+      }
+
+      setProfileImageUri(assetUri);
+      setError(null);
+    } catch {
+      setError("프로필 사진 선택에 실패했습니다.");
+    }
+  }
+
   function validateCurrentStep() {
     if (step === STEP_RESIDENCE && !selectedResidenceCity?.id) {
       setError("현재 거주지를 목록에서 선택해주세요.");
@@ -250,7 +284,7 @@ export function SignUpScreen({ navigation }) {
     setLoading(true);
     setError(null);
     try {
-      await signup({
+      const createdUser = await signup({
         username: profile.username.trim(),
         password: profile.password,
         name: profile.name.trim(),
@@ -258,9 +292,25 @@ export function SignUpScreen({ navigation }) {
         phone: profile.phone.trim(),
         sex: profile.sex,
         introduction: profile.introduction?.trim() ? profile.introduction.trim() : null,
+        profileImageUrl: profile.profileImageUrl?.trim() ? profile.profileImageUrl.trim() : null,
         nationalityId: selectedResidenceCity?.nationalityId || null,
         keywordIds: selectedKeywordIds,
       });
+
+      if (profileImageUri) {
+        try {
+          const userId = Number(createdUser?.id || 0);
+          if (Number.isFinite(userId) && userId > 0) {
+            const uploadResponse = await uploadUserProfileImage(userId, profileImageUri);
+            const uploadedImageUrl = uploadResponse?.user?.profileImageUrl || "";
+            if (uploadedImageUrl) {
+              updateProfile("profileImageUrl", uploadedImageUrl);
+            }
+          }
+        } catch {
+          // Sign-up success should not be blocked by optional profile image upload failure.
+        }
+      }
 
       await login(profile.username.trim(), profile.password);
 
@@ -408,6 +458,20 @@ export function SignUpScreen({ navigation }) {
         <View style={styles.card}>
           <Text style={styles.title}>마지막이에요!</Text>
           <Text style={styles.subtitle}>기본 정보를 설정해주세요.</Text>
+
+          <Text style={styles.label}>프로필 사진</Text>
+          <View style={styles.profileImageRow}>
+            <View style={styles.profileImagePreview}>
+              {profileImageUri ? (
+                <Image source={{ uri: profileImageUri }} style={styles.profileImage} />
+              ) : (
+                <Text style={styles.profileImagePlaceholder}>사진</Text>
+              )}
+            </View>
+            <Pressable style={styles.profileImageButton} onPress={handlePickProfileImage}>
+              <Text style={styles.profileImageButtonText}>사진 선택</Text>
+            </Pressable>
+          </View>
 
           <Text style={styles.label}>닉네임</Text>
           <TextInput
@@ -582,6 +646,47 @@ const styles = StyleSheet.create({
   },
   keywordMoreButtonText: {
     color: "#5E6983",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  profileImageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 4,
+  },
+  profileImagePreview: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    borderColor: "#D5DBE7",
+    backgroundColor: "#EEF2F8",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  profileImage: {
+    width: "100%",
+    height: "100%",
+  },
+  profileImagePlaceholder: {
+    color: "#768399",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  profileImageButton: {
+    height: 38,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#C9D3E7",
+    backgroundColor: "#F8FAFD",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileImageButtonText: {
+    color: "#4A5A78",
     fontSize: 13,
     fontWeight: "700",
   },
