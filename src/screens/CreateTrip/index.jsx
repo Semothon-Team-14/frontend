@@ -130,6 +130,7 @@ export function CreateTrip({ navigation, route }) {
   const [departureLandingDateTime, setDepartureLandingDateTime] = useState("");
   const [fromAirportCode, setFromAirportCode] = useState("");
   const [toAirportCode, setToAirportCode] = useState("");
+  const [fromCity, setFromCity] = useState(null);
   const [cities, setCities] = useState([]);
   const [selectedCity, setSelectedCity] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -285,6 +286,8 @@ export function CreateTrip({ navigation, route }) {
       setTitle(String(draft?.title || ""));
       setFromAirportCode(String(draft?.fromAirportCode || ""));
       setToAirportCode(String(draft?.toAirportCode || ""));
+      const detectedFromCity = cities.find((cityEntry) => Number(cityEntry?.id) === Number(draft?.fromCityId || 0)) || null;
+      setFromCity(detectedFromCity);
       const detectedCity = cities.find((cityEntry) => Number(cityEntry?.id) === Number(draft?.cityId)) || null;
       if (detectedCity) {
         setSelectedCity(detectedCity);
@@ -387,8 +390,8 @@ export function CreateTrip({ navigation, route }) {
 
       <View style={styles.tripCardRow}>
         <View style={styles.tripLocationCard}>
-          {selectedCity?.representativeImageUrl ? (
-            <Image source={{ uri: selectedCity.representativeImageUrl }} style={styles.tripLocationImage} resizeMode="cover" />
+          {fromCity?.representativeImageUrl ? (
+            <Image source={{ uri: fromCity.representativeImageUrl }} style={styles.tripLocationImage} resizeMode="cover" />
           ) : (
             <View style={[styles.tripLocationImage, styles.tripFallbackImage]} />
           )}
