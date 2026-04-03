@@ -1,16 +1,21 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import DirectionBlack from "../../icons/direction_black.svg";
 import TravelIcon from "../../icons/travelIcon.svg";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
-import { fetchTrips, fetchUser } from "../../services";
+import { fetchChatRooms, fetchTrips, fetchUser, fetchUsers } from "../../services";
 import { fetchAllCities } from "../../services/placeService";
 import { pickCurrentTrip } from "../../utils/trip";
 
 function parseDate(value) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function parseDateTime(value) {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -58,6 +63,8 @@ export function MyPage({ navigation }) {
   const { token } = useAuth();
   const [user, setUser] = useState(null);
   const [trips, setTrips] = useState([]);
+  const [chatRooms, setChatRooms] = useState([]);
+  const [usersById, setUsersById] = useState({});
   const [citiesById, setCitiesById] = useState({});
   const [currentCity, setCurrentCity] = useState(null);
 
@@ -98,12 +105,20 @@ export function MyPage({ navigation }) {
       .slice(0, 3);
   }, [trips]);
 
+  const directChatRoomsByRecent = useMemo(() => {
+    return [...chatRooms]
+      .filter((room) => Boolean(room?.directChat))
+      .sort((a, b) => String(b?.updatedDateTime || "").localeCompare(String(a?.updatedDateTime || "")));
+  }, [chatRooms]);
+
   const loadMyPage = useCallback(async () => {
     try {
-      const [userResponse, tripsResponse, allCities] = await Promise.all([
+      const [userResponse, tripsResponse, allCities, chatRoomsResponse, usersResponse] = await Promise.all([
         fetchUser(userId),
         fetchTrips(),
         fetchAllCities(),
+        fetchChatRooms(),
+        fetchUsers(),
       ]);
 
       const loadedUser = userResponse?.user ?? null;
@@ -112,16 +127,27 @@ export function MyPage({ navigation }) {
         acc[city.id] = city;
         return acc;
       }, {});
+      const allChatRooms = (chatRoomsResponse?.chatRooms ?? []).filter((room) =>
+        (room?.participantUserIds ?? []).some((participantId) => Number(participantId) === Number(userId)));
+      const allUsers = usersResponse?.users ?? [];
+      const userMap = allUsers.reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+      }, {});
       const currentTrip = pickCurrentTrip(loadedTrips);
       const city = cityMap[currentTrip?.cityId] || null;
 
       setUser(loadedUser);
       setTrips(loadedTrips);
+      setChatRooms(allChatRooms);
+      setUsersById(userMap);
       setCitiesById(cityMap);
       setCurrentCity(city);
     } catch {
       setUser(null);
       setTrips([]);
+      setChatRooms([]);
+      setUsersById({});
       setCitiesById({});
       setCurrentCity(null);
     }
@@ -156,6 +182,45 @@ export function MyPage({ navigation }) {
     }
 
     navigation.navigate("CreateTrip");
+  }
+
+  function getRecentTripChatAvatars(trip) {
+    const tripStart = parseDate(trip?.startDate);
+    const tripEnd = parseDate(trip?.endDate);
+    if (!tripStart || !tripEnd) {
+      return [];
+    }
+    const tripStartAt = new Date(tripStart.getFullYear(), tripStart.getMonth(), tripStart.getDate(), 0, 0, 0, 0);
+    const tripEndAt = new Date(tripEnd.getFullYear(), tripEnd.getMonth(), tripEnd.getDate(), 23, 59, 59, 999);
+
+    const seenOtherUserIds = new Set();
+    const avatars = [];
+
+    for (const room of directChatRoomsByRecent) {
+      const updatedAt = parseDateTime(room?.updatedDateTime);
+      if (!updatedAt || updatedAt < tripStartAt || updatedAt > tripEndAt) {
+        continue;
+      }
+
+      const otherUserId = (room?.participantUserIds ?? []).find((participantId) => Number(participantId) !== Number(userId));
+      if (!otherUserId || seenOtherUserIds.has(otherUserId)) {
+        continue;
+      }
+
+      seenOtherUserIds.add(otherUserId);
+      const otherUser = usersById[otherUserId];
+      avatars.push({
+        userId: otherUserId,
+        imageUrl: otherUser?.profileImageUrl || null,
+        fallbackText: String(otherUser?.name || `U${otherUserId}`).slice(0, 1).toUpperCase(),
+      });
+
+      if (avatars.length >= 3) {
+        break;
+      }
+    }
+
+    return avatars;
   }
 
   return (
@@ -206,6 +271,7 @@ export function MyPage({ navigation }) {
           {displayTrips.map((trip) => {
             const tripCity = citiesById[trip?.cityId] || null;
             const safeTripId = Number(trip?.id || 0);
+            const recentTripChatAvatars = getRecentTripChatAvatars(trip);
             return (
               <Pressable
                 key={trip.id}
@@ -226,6 +292,22 @@ export function MyPage({ navigation }) {
                 </View>
                 <Text style={styles.tripTitle}>{getCityNameKo(tripCity)}</Text>
                 <Text style={styles.tripMeta}>{getTripMetaText(trip)}</Text>
+                {recentTripChatAvatars.length > 0 ? (
+                  <View style={styles.tripAvatarRow}>
+                    {recentTripChatAvatars.map((avatar, index) => (
+                      <View
+                        key={`${trip.id}-${avatar.userId}`}
+                        style={[styles.tripAvatarCircle, index > 0 && styles.tripAvatarOverlap]}
+                      >
+                        {avatar.imageUrl ? (
+                          <Image source={{ uri: avatar.imageUrl }} style={styles.tripAvatarImage} />
+                        ) : (
+                          <Text style={styles.tripAvatarFallbackText}>{avatar.fallbackText}</Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
               </Pressable>
             );
           })}
@@ -379,6 +461,33 @@ const styles = StyleSheet.create({
     color: "#8A8A8A",
     fontWeight: "600",
     lineHeight: 20,
+  },
+  tripAvatarRow: {
+    flexDirection: "row",
+    marginTop: 10,
+  },
+  tripAvatarCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#EAF2FF",
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tripAvatarOverlap: {
+    marginLeft: -6,
+  },
+  tripAvatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  tripAvatarFallbackText: {
+    color: "#1D4ED8",
+    fontSize: 10,
+    fontWeight: "700",
   },
   emptyText: {
     color: "#888888",
