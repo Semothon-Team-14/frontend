@@ -432,7 +432,7 @@ export function CreateTrip({ navigation, route }) {
             </View>
             <Text style={styles.tripLocationSubtitle}>{getCitySubName(selectedCity, isKorean) || String(toAirportCode || EMPTY_FIELD)}</Text>
             <Text style={styles.tripLocationClock}>{formatTime(departureLandingDateTime, locale)}</Text>
-            <Text style={styles.tripLocationTime}>{formatDateMeta(toDateOnly(departureLandingDateTime) || startDate, locale)}</Text>
+            <Text style={styles.tripLocationTime}>{formatDateMeta(endDate || toDateOnly(departureLandingDateTime) || startDate, locale)}</Text>
           </View>
         </View>
       </View>
