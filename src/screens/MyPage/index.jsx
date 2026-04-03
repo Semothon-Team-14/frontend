@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DirectionBlack from "../../icons/direction_black.svg";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
+import { useLocale } from "../../locale";
 import { fetchChatRooms, fetchMingleMinglers, fetchMingles, fetchTrips, fetchUser, fetchUsers } from "../../services";
 import { fetchAllCities } from "../../services/placeService";
 import { pickCurrentTrip } from "../../utils/trip";
@@ -30,15 +31,15 @@ function diffDaysInclusive(startDate, endDate) {
   return Math.max(1, Math.floor((end.getTime() - start.getTime()) / msPerDay) + 1);
 }
 
-function formatKoreanDate(value) {
+function formatDateByLocale(value, isKorean) {
   const parsed = parseDate(value);
   if (!parsed) {
     return "-";
   }
 
-  return new Intl.DateTimeFormat("ko-KR", {
+  return new Intl.DateTimeFormat(isKorean ? "ko-KR" : "en-US", {
     year: "numeric",
-    month: "long",
+    month: isKorean ? "long" : "short",
     day: "numeric",
   }).format(parsed);
 }
@@ -51,15 +52,16 @@ function getCityNameEn(city) {
   return city?.cityNameEnglish || city?.name || "-";
 }
 
-function getTripMetaText(trip) {
+function getTripMetaText(trip, isKorean) {
   const inclusiveDays = diffDaysInclusive(trip?.startDate, trip?.endDate);
   const nights = inclusiveDays ? Math.max(0, inclusiveDays - 1) : null;
-  const durationText = nights != null ? `${nights}박 ${nights + 1}일` : "일정 미정";
-  return `${durationText} ・ ${formatKoreanDate(trip?.startDate)} ~ ${formatKoreanDate(trip?.endDate)}`;
+  const durationText = nights != null ? (isKorean ? `${nights}박 ${nights + 1}일` : `${nights}N ${nights + 1}D`) : (isKorean ? "일정 미정" : "Schedule TBD");
+  return `${durationText} ・ ${formatDateByLocale(trip?.startDate, isKorean)} ~ ${formatDateByLocale(trip?.endDate, isKorean)}`;
 }
 
 export function MyPage({ navigation }) {
   const { token } = useAuth();
+  const { tx, isKorean } = useLocale();
   const [user, setUser] = useState(null);
   const [trips, setTrips] = useState([]);
   const [chatRooms, setChatRooms] = useState([]);
@@ -319,7 +321,7 @@ export function MyPage({ navigation }) {
           <View style={styles.tagsRow}>
             {(user?.keywords ?? []).slice(0, 2).map((keyword) => (
               <View key={keyword.id} style={styles.tagPill}>
-                <Text style={styles.tagText}>#{keyword?.label || keyword?.name || ""}</Text>
+                <Text style={styles.tagText}>#{(!isKorean ? (keyword?.labelEnglish || keyword?.label) : keyword?.label) || keyword?.name || ""}</Text>
               </View>
             ))}
           </View>
@@ -327,8 +329,8 @@ export function MyPage({ navigation }) {
       </View>
 
       <View style={styles.sheet}>
-        <Text style={styles.sectionTitle}>나의 지역</Text>
-        <Text style={styles.sectionSubtitle}>지금까지 {trips.length}명의 밍글러와 함께 했어요!</Text>
+        <Text style={styles.sectionTitle}>{tx("나의 지역", "My Area")}</Text>
+        <Text style={styles.sectionSubtitle}>{tx(`지금까지 ${trips.length}명의 밍글러와 함께 했어요!`, `${trips.length} minglers so far`)}</Text>
 
         <View style={styles.locationCard}>
           <View style={styles.locationTopRow}>
@@ -338,17 +340,17 @@ export function MyPage({ navigation }) {
           <Text style={styles.locationSub}>{getCityNameEn(currentCity)}</Text>
           <View style={styles.locationDivider} />
           <Text style={styles.locationMeta}>
-            {mingleDaysInCurrentArea ? `이 동네에서 ${mingleDaysInCurrentArea}일째 밍글 중!` : "현재 여행 지역을 설정해보세요."}
+            {mingleDaysInCurrentArea ? tx(`이 동네에서 ${mingleDaysInCurrentArea}일째 밍글 중!`, `Mingling here for ${mingleDaysInCurrentArea} day(s)!`) : tx("현재 여행 지역을 설정해보세요.", "Set your current travel area.")}
           </Text>
         </View>
 
         <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>여행 기록</Text>
+          <Text style={styles.sectionTitle}>{tx("여행 기록", "Trip History")}</Text>
           <Pressable style={styles.iconButton} onPress={openCreateTrip}>
             <Ionicons name="add" size={20} color="#1C73F0" />
           </Pressable>
         </View>
-        <Text style={styles.sectionSubtitle}>최근 3개월간 {recentTripCount}번의 여행을 함께 했어요!</Text>
+        <Text style={styles.sectionSubtitle}>{tx(`최근 3개월간 ${recentTripCount}번의 여행을 함께 했어요!`, `${recentTripCount} trips in the last 3 months`)}</Text>
 
         <View style={styles.tripList}>
           {displayTrips.map((trip) => {
@@ -391,17 +393,17 @@ export function MyPage({ navigation }) {
                       ))}
                     </View>
                   ) : null}
-                  <Text style={styles.tripTitle}>{getCityNameKo(tripCity)}</Text>
-                  <Text style={styles.tripMeta}>{getTripMetaText(trip)}</Text>
+                  <Text style={styles.tripTitle}>{isKorean ? getCityNameKo(tripCity) : getCityNameEn(tripCity)}</Text>
+                  <Text style={styles.tripMeta}>{getTripMetaText(trip, isKorean)}</Text>
                 </View>
               </Pressable>
             );
           })}
-          {displayTrips.length === 0 ? <Text style={styles.emptyText}>아직 생성된 여행이 없습니다.</Text> : null}
+          {displayTrips.length === 0 ? <Text style={styles.emptyText}>{tx("아직 생성된 여행이 없습니다.", "No trips yet.")}</Text> : null}
         </View>
 
         <View style={styles.moreRow}>
-          <Text style={styles.moreText}>더보기</Text>
+          <Text style={styles.moreText}>{tx("더보기", "More")}</Text>
         </View>
       </View>
     </ScrollView>
