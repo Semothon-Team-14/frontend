@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
-  Easing,
   Image,
   ImageBackground,
   Pressable,
@@ -22,7 +20,6 @@ import Position from "../../icons/position.svg";
 import Direction from "../../icons/direction.svg";
 import Quick from "../../icons/quick.svg";
 import Speech from "../../icons/speech.svg";
-import HomeModeLogo from "../../icons/home_mode_logo.svg";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
@@ -45,6 +42,12 @@ import {
 } from "../../services";
 import { fetchAllCities } from "../../services/placeService";
 import { pickCurrentTrip } from "../../utils/trip";
+import {
+  getCurrentHomeMode,
+  HOME_MODE_LOCAL,
+  HOME_MODE_TRAVELER,
+  subscribeHomeMode,
+} from "../../state/homeMode";
 
 const CHIPS = [
   { id: "restaurant", labelKo: "#식당", labelEn: "#Food", supported: true },
@@ -52,9 +55,6 @@ const CHIPS = [
   { id: "shopping", labelKo: "#쇼핑", labelEn: "#Shopping", supported: false },
   { id: "fun", labelKo: "#놀거리", labelEn: "#Activities", supported: false },
 ];
-const HOME_MODE_TRAVELER = "TRAVELER";
-const HOME_MODE_LOCAL = "LOCAL";
-
 function ChipRow({ activeId, onSelect, tx }) {
   return (
     <ScrollView
@@ -162,7 +162,7 @@ export function MainScreen() {
     }, [isKorean]),
   );
 
-  const [homeMode, setHomeMode] = useState(HOME_MODE_TRAVELER);
+  const [homeMode, setHomeMode] = useState(getCurrentHomeMode());
   const [activeChip, setActiveChip] = useState("restaurant");
   const [currentTrip, setCurrentTrip] = useState(null);
   const [tripCity, setTripCity] = useState(null);
@@ -183,9 +183,6 @@ export function MainScreen() {
   const [localUserProfile, setLocalUserProfile] = useState(null);
   const [localAvailableTimeText, setLocalAvailableTimeText] = useState(null);
   const placeRequestSequenceRef = useRef(0);
-  const modeLogoAnim = useRef(new Animated.Value(0)).current;
-  const contentSwitchAnim = useRef(new Animated.Value(1)).current;
-  const switchDirectionRef = useRef(1);
 
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const activePlaceType = useMemo(() => {
@@ -572,53 +569,23 @@ export function MainScreen() {
     };
   }, [localMarkers, selectedCityCenter]);
 
-  const logoRotate = modeLogoAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "180deg"],
-  });
-  const contentTranslateX = contentSwitchAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [switchDirectionRef.current * 18, 0],
-  });
-
   useEffect(() => {
-    Animated.timing(modeLogoAnim, {
-      toValue: homeMode === HOME_MODE_LOCAL ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [homeMode, modeLogoAnim]);
-
-  function handleToggleHomeMode() {
-    const nextMode =
-      homeMode === HOME_MODE_TRAVELER ? HOME_MODE_LOCAL : HOME_MODE_TRAVELER;
-    switchDirectionRef.current = nextMode === HOME_MODE_LOCAL ? 1 : -1;
-    contentSwitchAnim.setValue(0);
-    setHomeMode(nextMode);
-    Animated.timing(contentSwitchAnim, {
-      toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }
+    return subscribeHomeMode((nextMode) => {
+      setHomeMode(nextMode);
+    });
+  }, []);
 
   return (
     <View style={styles.mainContainer}>
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.topBar}>
-          <Pressable
-            style={styles.homeModeLogoButton}
-            onPress={handleToggleHomeMode}
-            hitSlop={8}
-          >
-            <Animated.View
-              style={{ transform: [{ rotate: logoRotate }] }}
-            >
-              <HomeModeLogo width={36} height={36} />
-            </Animated.View>
-          </Pressable>
+          <View style={styles.homeModeLogoButton}>
+            <Image
+              source={require("../../images/home_mode_logo.png")}
+              style={styles.homeModeLogoImage}
+              resizeMode="contain"
+            />
+          </View>
           <View style={styles.topIcons}>
             <Alarm />
             <Pressable onPress={() => navigation.navigate("ProfileEdit")}>
@@ -632,13 +599,7 @@ export function MainScreen() {
           </View>
         </View>
 
-        <Animated.View
-          style={{
-            opacity: contentSwitchAnim,
-            transform: [{ translateX: contentTranslateX }],
-          }}
-        >
-          <View style={styles.locationSection}>
+        <View style={styles.locationSection}>
           <View style={styles.locationRow}>
             <Text style={styles.locationKo}>
               {selectedCityDisplayName ||
@@ -650,7 +611,7 @@ export function MainScreen() {
             {selectedCityDisplayName ||
               tx("어디로 떠나시나요?", "Where to next?")}
           </Text>
-          </View>
+        </View>
 
         {homeMode === HOME_MODE_TRAVELER ? (
           <View style={styles.quickRow}>
@@ -989,7 +950,6 @@ export function MainScreen() {
             </Pressable>
           </View>
           ) : null}
-        </Animated.View>
       </ScrollView>
     </View>
   );
@@ -1016,6 +976,10 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: "center",
     justifyContent: "center",
+  },
+  homeModeLogoImage: {
+    width: 30,
+    height: 30,
   },
   topIcons: {
     flexDirection: "row",
