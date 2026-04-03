@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import More from "../../icons/more.svg";
+import { Ionicons } from "@expo/vector-icons";
 import DirectionBlack from "../../icons/direction_black.svg";
 import TravelIcon from "../../icons/travelIcon.svg";
 import { useAuth } from "../../auth";
@@ -54,8 +54,8 @@ function getTripMetaText(trip) {
   return `${durationText} ・ ${formatKoreanDate(trip?.startDate)} ~ ${formatKoreanDate(trip?.endDate)}`;
 }
 
-export function MyPage() {
-  const { token, logout } = useAuth();
+export function MyPage({ navigation }) {
+  const { token } = useAuth();
   const [user, setUser] = useState(null);
   const [trips, setTrips] = useState([]);
   const [citiesById, setCitiesById] = useState({});
@@ -137,8 +137,8 @@ export function MyPage() {
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.blueTop}>
         <View style={styles.topBar}>
-          <Pressable onPress={logout}>
-            <More />
+          <Pressable style={styles.iconButton} onPress={() => navigation.navigate("CreateTrip")}>
+            <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
           </Pressable>
         </View>
 
@@ -169,7 +169,12 @@ export function MyPage() {
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>여행 기록</Text>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>여행 기록</Text>
+          <Pressable style={styles.iconButton} onPress={() => navigation.navigate("CreateTrip")}>
+            <Ionicons name="add" size={20} color="#1C73F0" />
+          </Pressable>
+        </View>
         <Text style={styles.sectionSubtitle}>최근 3개월간 {recentTripCount}번의 여행을 함께 했어요!</Text>
 
         <View style={styles.tripList}>
@@ -259,6 +264,11 @@ const styles = StyleSheet.create({
     color: "#111111",
     marginBottom: 2,
   },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   sectionSubtitle: {
     fontSize: 14,
     color: "#8A8A8A",
@@ -336,5 +346,12 @@ const styles = StyleSheet.create({
     color: "#A0A0A0",
     fontSize: 14,
     fontWeight: "700",
+  },
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
