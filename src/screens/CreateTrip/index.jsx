@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { CalendarDateField } from "../../components/CalendarDateField";
@@ -123,7 +123,6 @@ function getAirportLabel(code, locale) {
 export function CreateTrip({ navigation, route }) {
   const { tx, locale, isKorean } = useLocale();
   const [title, setTitle] = useState("");
-  const [cityQuery, setCityQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [departureDateTime, setDepartureDateTime] = useState("");
@@ -133,6 +132,9 @@ export function CreateTrip({ navigation, route }) {
   const [fromCity, setFromCity] = useState(null);
   const [cities, setCities] = useState([]);
   const [selectedCity, setSelectedCity] = useState(null);
+  const [cityPickerTarget, setCityPickerTarget] = useState(null);
+  const [cityPickerQuery, setCityPickerQuery] = useState("");
+  const [cityPickerSelection, setCityPickerSelection] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingInitialData, setLoadingInitialData] = useState(false);
   const [scanningTicket, setScanningTicket] = useState(false);
@@ -165,7 +167,6 @@ export function CreateTrip({ navigation, route }) {
           if (trip) {
             const matchedCity = dedupedCities.find((city) => Number(city?.id) === Number(trip?.cityId)) || null;
             setSelectedCity(matchedCity);
-            setCityQuery(matchedCity ? getCityDisplayName(matchedCity, isKorean) : "");
             setTitle(String(trip?.title || ""));
             setStartDate(toDateOnly(trip?.startDate));
             setEndDate(toDateOnly(trip?.endDate));
@@ -202,8 +203,8 @@ export function CreateTrip({ navigation, route }) {
 
   const nights = useMemo(() => getNights(startDate, endDate), [startDate, endDate]);
 
-  function handleCityQueryChange(nextQuery) {
-    setCityQuery(nextQuery);
+  function handleCityPickerQueryChange(nextQuery) {
+    setCityPickerQuery(nextQuery);
     const normalizedQuery = normalizeLiteral(nextQuery);
     const exactMatchedCity = cities.find((city) => {
       const ko = normalizeLiteral(city?.cityNameKorean);
@@ -211,7 +212,30 @@ export function CreateTrip({ navigation, route }) {
       const fallback = normalizeLiteral(city?.name);
       return normalizedQuery === ko || normalizedQuery === en || normalizedQuery === fallback;
     }) || null;
-    setSelectedCity(exactMatchedCity);
+    setCityPickerSelection(exactMatchedCity);
+  }
+
+  function openCityPicker(target) {
+    setCityPickerTarget(target);
+    const existing = target === "from" ? fromCity : selectedCity;
+    setCityPickerSelection(existing || null);
+    setCityPickerQuery(existing ? getCityDisplayName(existing, isKorean) : "");
+  }
+
+  function applyCityPickerSelection() {
+    if (!cityPickerSelection) {
+      setCityPickerTarget(null);
+      return;
+    }
+    if (cityPickerTarget === "from") {
+      setFromCity(cityPickerSelection);
+      setFromAirportCode("");
+    } else if (cityPickerTarget === "to") {
+      setSelectedCity(cityPickerSelection);
+      setToAirportCode("");
+    }
+    setError(null);
+    setCityPickerTarget(null);
   }
 
   async function handlePickTicket(source) {
@@ -291,7 +315,6 @@ export function CreateTrip({ navigation, route }) {
       const detectedCity = cities.find((cityEntry) => Number(cityEntry?.id) === Number(draft?.cityId)) || null;
       if (detectedCity) {
         setSelectedCity(detectedCity);
-        setCityQuery(getCityDisplayName(detectedCity, isKorean));
       }
       const nextStartDate = toDateOnly(draft?.startDate);
       setStartDate(nextStartDate);
@@ -364,25 +387,6 @@ export function CreateTrip({ navigation, route }) {
 
       <Text style={styles.sectionTitle}>{tx("여행지 등록", "Trip Setup")}</Text>
 
-      <View style={styles.citySelectorArea}>
-        <SearchDropdown
-          value={cityQuery}
-          onChangeText={handleCityQueryChange}
-          placeholder={tx("도착 도시 검색", "Search destination city")}
-          items={cities}
-          selectedItem={selectedCity}
-          getItemKey={(city) => city.id}
-          getItemLabel={(city) => getCityDisplayName(city, isKorean)}
-          getItemSearchText={getCitySearchText}
-          onSelectItem={(city) => {
-            setSelectedCity(city);
-            setCityQuery(getCityDisplayName(city, isKorean));
-            setError(null);
-          }}
-          emptyText={tx("일치하는 도시가 없습니다.", "No matching city.")}
-        />
-      </View>
-
       <View style={styles.tripCardLabels}>
         <Text style={styles.tripCardLabel}>FROM</Text>
         <Text style={styles.tripCardLabel}>TO</Text>
@@ -396,10 +400,14 @@ export function CreateTrip({ navigation, route }) {
             <View style={[styles.tripLocationImage, styles.tripFallbackImage]} />
           )}
           <View style={styles.tripLocationMeta}>
-            <Text style={styles.tripLocationTitle}>{getAirportLabel(fromAirportCode, locale)}</Text>
-            <Text style={styles.tripLocationSubtitle}>{String(fromAirportCode || EMPTY_FIELD)}</Text>
-            <Text style={styles.tripLocationTime}>{formatTime(departureDateTime, locale)}</Text>
-            <Text style={styles.tripLocationDate}>{formatDateMeta(startDate, locale)}</Text>
+            <View style={styles.tripCityEditRow}>
+              <Text style={styles.tripLocationTitle}>{getCityDisplayName(fromCity, isKorean) || getAirportLabel(fromAirportCode, locale)}</Text>
+              <Pressable onPress={() => openCityPicker("from")} hitSlop={10}>
+                <Ionicons name="pencil" size={14} color="#AAB0BB" />
+              </Pressable>
+            </View>
+            <Text style={styles.tripLocationSubtitle}>{getCitySubName(fromCity, isKorean) || String(fromAirportCode || EMPTY_FIELD)}</Text>
+            <Text style={styles.tripLocationTime}>{formatDateMeta(toDateOnly(departureDateTime) || startDate, locale)}</Text>
           </View>
         </View>
 
@@ -410,10 +418,14 @@ export function CreateTrip({ navigation, route }) {
             <View style={[styles.tripLocationImage, styles.tripFallbackImage]} />
           )}
           <View style={styles.tripLocationMeta}>
-            <Text style={styles.tripLocationTitle}>{getCityDisplayName(selectedCity, isKorean) || EMPTY_FIELD}</Text>
+            <View style={styles.tripCityEditRow}>
+              <Text style={styles.tripLocationTitle}>{getCityDisplayName(selectedCity, isKorean) || EMPTY_FIELD}</Text>
+              <Pressable onPress={() => openCityPicker("to")} hitSlop={10}>
+                <Ionicons name="pencil" size={14} color="#AAB0BB" />
+              </Pressable>
+            </View>
             <Text style={styles.tripLocationSubtitle}>{getCitySubName(selectedCity, isKorean) || String(toAirportCode || EMPTY_FIELD)}</Text>
-            <Text style={styles.tripLocationTime}>{formatTime(departureLandingDateTime, locale)}</Text>
-            <Text style={styles.tripLocationDate}>{formatDateMeta(startDate, locale)}</Text>
+            <Text style={styles.tripLocationTime}>{formatDateMeta(toDateOnly(departureLandingDateTime) || startDate, locale)}</Text>
           </View>
         </View>
       </View>
@@ -478,6 +490,39 @@ export function CreateTrip({ navigation, route }) {
       >
         <Text style={styles.submitButtonText}>{actionLabel}</Text>
       </Pressable>
+
+      <Modal visible={Boolean(cityPickerTarget)} transparent animationType="slide" onRequestClose={() => setCityPickerTarget(null)}>
+        <View style={styles.pickerModalBackdrop}>
+          <View style={styles.pickerModalCard}>
+            <Text style={styles.pickerModalTitle}>
+              {cityPickerTarget === "from" ? tx("출발 도시 선택", "Choose Departure City") : tx("도착 도시 선택", "Choose Destination City")}
+            </Text>
+            <SearchDropdown
+              value={cityPickerQuery}
+              onChangeText={handleCityPickerQueryChange}
+              placeholder={tx("도시 검색", "Search city")}
+              items={cities}
+              selectedItem={cityPickerSelection}
+              getItemKey={(city) => city.id}
+              getItemLabel={(city) => getCityDisplayName(city, isKorean)}
+              getItemSearchText={getCitySearchText}
+              onSelectItem={(city) => {
+                setCityPickerSelection(city);
+                setCityPickerQuery(getCityDisplayName(city, isKorean));
+              }}
+              emptyText={tx("일치하는 도시가 없습니다.", "No matching city.")}
+            />
+            <View style={styles.pickerActionRow}>
+              <Pressable style={styles.pickerCancelButton} onPress={() => setCityPickerTarget(null)}>
+                <Text style={styles.pickerCancelText}>{tx("취소", "Cancel")}</Text>
+              </Pressable>
+              <Pressable style={styles.pickerDoneButton} onPress={applyCityPickerSelection}>
+                <Text style={styles.pickerDoneText}>{tx("선택", "Apply")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -510,9 +555,6 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "900",
     letterSpacing: -0.5,
-  },
-  citySelectorArea: {
-    marginTop: 2,
   },
   tripCardLabels: {
     flexDirection: "row",
@@ -556,6 +598,11 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     minHeight: 172,
   },
+  tripCityEditRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   tripLocationTitle: {
     color: "#20232A",
     fontSize: 36,
@@ -571,16 +618,9 @@ const styles = StyleSheet.create({
   tripLocationTime: {
     marginTop: 20,
     color: "#20232A",
-    fontSize: 48,
+    fontSize: 22,
     fontWeight: "900",
-    letterSpacing: -1,
-  },
-  tripLocationDate: {
-    marginTop: 4,
-    color: "#A0A7B5",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 0.9,
+    letterSpacing: 0.2,
   },
   scanRow: {
     gap: 8,
@@ -647,5 +687,51 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     letterSpacing: 0.1,
+  },
+  pickerModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.24)",
+    justifyContent: "flex-end",
+    padding: 14,
+  },
+  pickerModalCard: {
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    padding: 14,
+    gap: 10,
+  },
+  pickerModalTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#151515",
+  },
+  pickerActionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  pickerCancelButton: {
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "#EFF2F7",
+    paddingHorizontal: 12,
+    justifyContent: "center",
+  },
+  pickerCancelText: {
+    color: "#4B5563",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  pickerDoneButton: {
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "#1D6FF2",
+    paddingHorizontal: 12,
+    justifyContent: "center",
+  },
+  pickerDoneText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
   },
 });
