@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
+import { useLocale } from "../../locale";
 import {
   deleteSavedCafe,
   deleteSavedRestaurant,
@@ -31,6 +32,7 @@ function shuffleItems(items) {
 
 export function BookMark() {
   const { token } = useAuth();
+  const { tx } = useLocale();
   const isFocused = useIsFocused();
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
   const [savedRestaurants, setSavedRestaurants] = useState([]);
@@ -201,11 +203,11 @@ export function BookMark() {
       <ScrollView contentContainerStyle={styles.sheetWrap}>
         <View style={styles.sheet}>
           <View style={styles.titleRow}>
-            <Text style={styles.placeTitle}>나만의 장소</Text>
+            <Text style={styles.placeTitle}>{tx("나만의 장소", "My Places")}</Text>
           </View>
 
-          <Text style={styles.sectionTitle}>저장한 식당</Text>
-          {savedRestaurants.length === 0 ? <Text style={styles.emptyText}>저장한 식당이 없습니다.</Text> : null}
+          <Text style={styles.sectionTitle}>{tx("저장한 식당", "Saved Restaurants")}</Text>
+          {savedRestaurants.length === 0 ? <Text style={styles.emptyText}>{tx("저장한 식당이 없습니다.", "No saved restaurants.")}</Text> : null}
           <View style={styles.listWrap}>
             {savedRestaurants.map((saved) => (
               <View key={saved.id} style={styles.placeItem}>
@@ -220,8 +222,8 @@ export function BookMark() {
             ))}
           </View>
 
-          <Text style={styles.sectionTitle}>저장한 카페</Text>
-          {savedCafes.length === 0 ? <Text style={styles.emptyText}>저장한 카페가 없습니다.</Text> : null}
+          <Text style={styles.sectionTitle}>{tx("저장한 카페", "Saved Cafes")}</Text>
+          {savedCafes.length === 0 ? <Text style={styles.emptyText}>{tx("저장한 카페가 없습니다.", "No saved cafes.")}</Text> : null}
           <View style={styles.listWrap}>
             {savedCafes.map((saved) => (
               <View key={saved.id} style={styles.placeItem}>
