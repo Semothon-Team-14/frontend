@@ -1295,7 +1295,7 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   chipDisabled: {
-    opacity: 0.45,
+    opacity: 1,
   },
   plusChip: {
     width: 28,
