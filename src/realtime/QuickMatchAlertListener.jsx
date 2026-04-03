@@ -176,10 +176,7 @@ export function QuickMatchAlertListener() {
       setIncomingQuickMatch(null);
       const acceptedChatRoomId = toNumberOrNull(acceptedResult?.result?.chatRoom?.id);
       if (acceptedChatRoomId && navigationRef.isReady()) {
-        navigationRef.navigate("Tabs", {
-          screen: "Chats",
-          params: { chatRoomId: acceptedChatRoomId },
-        });
+        navigationRef.navigate("ChatRoom", { chatRoomId: acceptedChatRoomId });
       }
       showInAppBanner("빠른 매칭 수락 요청을 보냈어요.");
     } catch (error) {
@@ -196,10 +193,7 @@ export function QuickMatchAlertListener() {
               const joined = await joinMingleChatRoom(acceptedMingleId);
               const chatRoomId = toNumberOrNull(joined?.chatRoom?.id);
               if (chatRoomId && navigationRef.isReady()) {
-                navigationRef.navigate("Tabs", {
-                  screen: "Chats",
-                  params: { chatRoomId },
-                });
+                navigationRef.navigate("ChatRoom", { chatRoomId });
               } else if (navigationRef.isReady()) {
                 navigationRef.navigate("Tabs", { screen: "Chats" });
               }
@@ -378,9 +372,22 @@ export function QuickMatchAlertListener() {
           }
           if (matchedPendingAccept) {
             if (navigationRef.isReady()) {
-              navigationRef.navigate("Tabs", {
-                screen: "Chats",
-              });
+              const acceptedMingleId = toNumberOrNull(event?.quickMatch?.mingleId);
+              if (acceptedMingleId) {
+                try {
+                  const joined = await joinMingleChatRoom(acceptedMingleId);
+                  const chatRoomId = toNumberOrNull(joined?.chatRoom?.id);
+                  if (chatRoomId) {
+                    navigationRef.navigate("ChatRoom", { chatRoomId });
+                  } else {
+                    navigationRef.navigate("Tabs", { screen: "Chats" });
+                  }
+                } catch {
+                  navigationRef.navigate("Tabs", { screen: "Chats" });
+                }
+              } else {
+                navigationRef.navigate("Tabs", { screen: "Chats" });
+              }
             }
             showInAppBanner("빠른 매칭이 확정되어 채팅으로 이동합니다.");
           } else {
@@ -414,18 +421,12 @@ export function QuickMatchAlertListener() {
           handledAcceptedQuickMatchesRef.current.add(quickMatchId);
           try {
             if (acceptedChatRoomId && navigationRef.isReady()) {
-              navigationRef.navigate("Tabs", {
-                screen: "Chats",
-                params: { chatRoomId: acceptedChatRoomId },
-              });
+              navigationRef.navigate("ChatRoom", { chatRoomId: acceptedChatRoomId });
             } else if (acceptedMingleId) {
               const joined = await joinMingleChatRoom(acceptedMingleId);
               const chatRoomId = toNumberOrNull(joined?.chatRoom?.id);
               if (chatRoomId && navigationRef.isReady()) {
-                navigationRef.navigate("Tabs", {
-                  screen: "Chats",
-                  params: { chatRoomId },
-                });
+                navigationRef.navigate("ChatRoom", { chatRoomId });
               } else if (navigationRef.isReady()) {
                 navigationRef.navigate("Tabs", {
                   screen: "Chats",
