@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../../../auth";
+import ApplicationLogo from "../../../images/application_logo.svg";
 
 export function LoginScreen({ navigation }) {
   const { login } = useAuth();
@@ -28,14 +29,12 @@ export function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.logoWrap}>
-        <Image
-          source={require("../../../images/home_mode_logo.png")}
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
+      <View style={styles.headerRow}>
+        <View style={styles.logoWrap}>
+          <ApplicationLogo width={36} height={36} style={styles.logoImage} />
+        </View>
+        <Text style={styles.title}>로그인</Text>
       </View>
-      <Text style={styles.title}>로그인</Text>
       {/* <Text style={styles.subtitle}>Figma 인증 화면 추가 전 임시 인증 UI입니다.</Text> */}
 
       <View style={styles.form}>
@@ -93,15 +92,23 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#111",
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   logoWrap: {
-    width: 44,
-    height: 44,
-    alignItems: "flex-start",
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#EAF2FF",
+    alignItems: "center",
     justifyContent: "center",
   },
   logoImage: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
+    opacity: 0.98,
   },
   subtitle: {
     fontSize: 14,
