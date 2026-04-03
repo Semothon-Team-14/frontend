@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
+import { createQuickMatch } from "../../services/quickMatchService";
 import {
   createQuickMatchSocketClient,
   publishCreateQuickMatch,
@@ -262,17 +263,28 @@ export function QuickMatch({ navigation, route }) {
     const requestStartedAt = Date.now();
     try {
       const connected = await waitForSocketConnected(clientRef.current, 5000);
-      if (!connected) {
-        throw new Error(
-          "실시간 연결 준비 중입니다. 잠시 후 다시 시도해주세요.",
-        );
+      if (connected) {
+        await publishCreateQuickMatch(clientRef.current, {
+          cityId,
+          message: selectedInterestKeys.includes("ANY")
+            ? null
+            : selectedInterestsLabel,
+        });
+      } else {
+        const created = await createQuickMatch({
+          cityId,
+          message: selectedInterestKeys.includes("ANY")
+            ? null
+            : selectedInterestsLabel,
+        });
+        const createdId = Number(created?.quickMatch?.id || 0);
+        if (createdId > 0) {
+          pendingRequestRef.current = {
+            cityId,
+            quickMatchId: createdId,
+          };
+        }
       }
-      await publishCreateQuickMatch(clientRef.current, {
-        cityId,
-        message: selectedInterestKeys.includes("ANY")
-          ? null
-          : selectedInterestsLabel,
-      });
       const elapsedMs = Date.now() - requestStartedAt;
       if (elapsedMs < MIN_PROGRESS_VISIBLE_MS) {
         await new Promise((resolve) =>
