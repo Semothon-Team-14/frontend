@@ -1,7 +1,26 @@
 import { NativeModules, Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 const DEFAULT_PORT = '8080';
 const DEFAULT_API_BASE_URL = `http://localhost:${DEFAULT_PORT}`;
+
+function isLoopbackHost(host) {
+  return host === 'localhost' || host === '127.0.0.1';
+}
+
+function extractHost(value) {
+  if (typeof value !== 'string' || value.length === 0) {
+    return null;
+  }
+
+  const normalized = value.includes('://') ? value : `http://${value}`;
+
+  try {
+    return new URL(normalized).hostname;
+  } catch {
+    return null;
+  }
+}
 
 function extractDevServerHost() {
   const scriptUrl =
@@ -20,16 +39,34 @@ function extractDevServerHost() {
   }
 }
 
+function extractExpoHost() {
+  const hostUri =
+    Constants?.expoConfig?.hostUri ||
+    Constants?.manifest2?.extra?.expoClient?.hostUri ||
+    Constants?.manifest?.debuggerHost ||
+    null;
+
+  return extractHost(hostUri);
+}
+
 function getDefaultApiBaseUrl() {
-  const devServerHost = extractDevServerHost();
+  const fallbackLanHost = process.env.EXPO_PUBLIC_DEV_LAN_IP?.trim() || null;
+  const devServerHost = extractDevServerHost() || extractExpoHost();
 
   if (devServerHost) {
-    const resolvedHost =
-      Platform.OS === 'android' && (devServerHost === 'localhost' || devServerHost === '127.0.0.1')
-        ? '10.0.2.2'
-        : devServerHost;
+    if (Platform.OS === 'android' && isLoopbackHost(devServerHost)) {
+      return `http://10.0.2.2:${DEFAULT_PORT}`;
+    }
+
+    const resolvedHost = isLoopbackHost(devServerHost) && fallbackLanHost
+      ? fallbackLanHost
+      : devServerHost;
 
     return `http://${resolvedHost}:${DEFAULT_PORT}`;
+  }
+
+  if (fallbackLanHost) {
+    return `http://${fallbackLanHost}:${DEFAULT_PORT}`;
   }
 
   if (Platform.OS === 'android') {
