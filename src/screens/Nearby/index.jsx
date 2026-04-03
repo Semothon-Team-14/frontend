@@ -16,6 +16,8 @@ const GROUP_SIZE_FILTER_3 = "3";
 const GROUP_SIZE_FILTER_4 = "4";
 const GROUP_SIZE_FILTER_5PLUS = "5+";
 const TARGET_PARTICIPANT_OPTIONS = [2, 3, 4, 5];
+const DRAWER_COVERAGE_COLLAPSED = 0.42;
+const DRAWER_COVERAGE_EXPANDED = 0.72;
 
 function pad2(value) {
   return String(value).padStart(2, "0");
@@ -121,6 +123,7 @@ export function Nearby({ route }) {
   const [joinedMingleIdSet, setJoinedMingleIdSet] = useState(new Set());
   const [groupSizeFilter, setGroupSizeFilter] = useState(GROUP_SIZE_FILTER_ALL);
   const [selectedMingleId, setSelectedMingleId] = useState(null);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(true);
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -202,41 +205,55 @@ export function Nearby({ route }) {
   }, [mingleRows]);
 
   const mapRegion = useMemo(() => {
+    const drawerCoverage = sheetExpanded ? DRAWER_COVERAGE_EXPANDED : DRAWER_COVERAGE_COLLAPSED;
+    const withDrawerCompensation = (latitude, latitudeDelta) => ({
+      latitude: latitude - latitudeDelta * (drawerCoverage / 2),
+      latitudeDelta,
+    });
+
     const selectedMarker = mingleMarkers.find((marker) => Number(marker.id) === Number(selectedMingleId));
     if (selectedMarker) {
+      const latitudeDelta = 0.045;
+      const compensated = withDrawerCompensation(selectedMarker.coordinate.latitude, latitudeDelta);
       return {
-        latitude: selectedMarker.coordinate.latitude,
+        latitude: compensated.latitude,
         longitude: selectedMarker.coordinate.longitude,
-        latitudeDelta: 0.045,
+        latitudeDelta: compensated.latitudeDelta,
         longitudeDelta: 0.045,
       };
     }
 
     if (cityCenter) {
+      const latitudeDelta = 0.18;
+      const compensated = withDrawerCompensation(cityCenter.latitude, latitudeDelta);
       return {
-        latitude: cityCenter.latitude,
+        latitude: compensated.latitude,
         longitude: cityCenter.longitude,
-        latitudeDelta: 0.18,
+        latitudeDelta: compensated.latitudeDelta,
         longitudeDelta: 0.18,
       };
     }
 
     if (mingleMarkers.length === 0) {
+      const latitudeDelta = 0.25;
+      const compensated = withDrawerCompensation(37.5665, latitudeDelta);
       return {
-        latitude: 37.5665,
+        latitude: compensated.latitude,
         longitude: 126.978,
-        latitudeDelta: 0.25,
+        latitudeDelta: compensated.latitudeDelta,
         longitudeDelta: 0.25,
       };
     }
 
+    const latitudeDelta = 0.08;
+    const compensated = withDrawerCompensation(mingleMarkers[0].coordinate.latitude, latitudeDelta);
     return {
-      latitude: mingleMarkers[0].coordinate.latitude,
+      latitude: compensated.latitude,
       longitude: mingleMarkers[0].coordinate.longitude,
-      latitudeDelta: 0.08,
+      latitudeDelta: compensated.latitudeDelta,
       longitudeDelta: 0.08,
     };
-  }, [cityCenter, mingleMarkers, selectedMingleId]);
+  }, [cityCenter, mingleMarkers, selectedMingleId, sheetExpanded]);
 
   const loadNearby = useCallback(async () => {
     setLoading(true);
@@ -529,8 +546,16 @@ export function Nearby({ route }) {
       </MapView>
 
       <View pointerEvents="box-none" style={styles.overlayLayer}>
-        <View style={styles.listSheet}>
-          <View style={styles.sheetHandle} />
+        <View style={[styles.listSheet, sheetExpanded ? styles.listSheetExpanded : styles.listSheetCollapsed]}>
+          <Pressable style={styles.sheetHandleButton} onPress={() => setSheetExpanded((prev) => !prev)}>
+            <View style={styles.sheetHandle} />
+            <Ionicons
+              name={sheetExpanded ? "chevron-down" : "chevron-up"}
+              size={14}
+              color="#7B8AA6"
+              style={styles.sheetHandleIcon}
+            />
+          </Pressable>
           <View style={styles.sheetTopRow}>
             <View style={styles.groupFilterHeader}>
               <View style={styles.groupFilterRow}>
@@ -837,12 +862,24 @@ const styles = StyleSheet.create({
     color: "#1C73F0",
   },
   listSheet: {
-    minHeight: "42%",
-    maxHeight: "58%",
     backgroundColor: "rgba(241,244,249,0.96)",
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingTop: 8,
+  },
+  listSheetCollapsed: {
+    height: "42%",
+  },
+  listSheetExpanded: {
+    height: "72%",
+  },
+  sheetHandleButton: {
+    alignSelf: "center",
+    width: 56,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
   },
   sheetTopRow: {
     paddingHorizontal: 16,
@@ -853,12 +890,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sheetHandle: {
-    alignSelf: "center",
     width: 44,
     height: 5,
     borderRadius: 999,
     backgroundColor: "#C5CFDC",
-    marginBottom: 8,
+  },
+  sheetHandleIcon: {
+    marginTop: 1,
   },
   sheetContent: {
     paddingHorizontal: 16,
