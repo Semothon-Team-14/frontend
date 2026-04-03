@@ -509,70 +509,71 @@ export function Nearby({ route }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.headerTitle}>{tx("로컬 밍글러", "Local Minglers")}</Text>
-        <Pressable style={styles.createMingleButton} onPress={() => setCreateModalVisible(true)}>
-          <Ionicons name="add" size={16} color="#FFFFFF" />
-          <Text style={styles.createMingleButtonText}>{tx("밍글 만들기", "Create")}</Text>
-        </Pressable>
-      </View>
+      <MapView style={styles.fullScreenMap} region={mapRegion}>
+        {mingleMarkers.map((marker) => (
+          <Marker
+            key={marker.id}
+            coordinate={marker.coordinate}
+            onPress={() => setSelectedMingleId(marker.id)}
+          >
+            <Image
+              source={
+                Number(selectedMingleId) === Number(marker.id)
+                  ? require("../../images/mingle_marker_selected.png")
+                  : require("../../images/mingle_marker_unselected.png")
+              }
+              style={styles.markerImage}
+            />
+          </Marker>
+        ))}
+      </MapView>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.groupFilterHeader}>
-          <View style={styles.groupFilterRow}>
-            {[
-              GROUP_SIZE_FILTER_ALL,
-              GROUP_SIZE_FILTER_2,
-              GROUP_SIZE_FILTER_3,
-              GROUP_SIZE_FILTER_4,
-              GROUP_SIZE_FILTER_5PLUS,
-            ].map((filter) => {
-              const active = groupSizeFilter === filter;
-              return (
-                <Pressable
-                  key={filter}
-                  style={[styles.groupFilterChip, active && styles.groupFilterChipActive]}
-                  onPress={() => setGroupSizeFilter(filter)}
-                >
-                  <Text style={[styles.groupFilterText, active && styles.groupFilterTextActive]}>
-                    {filter === GROUP_SIZE_FILTER_ALL ? tx("전체", "All") : `${filter}${tx("명", "")}`}
-                  </Text>
-                </Pressable>
-              );
-            })}
+      <View pointerEvents="box-none" style={styles.overlayLayer}>
+        <View style={styles.topOverlay}>
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>{tx("로컬 밍글러", "Local Minglers")}</Text>
+            <Pressable style={styles.createMingleButton} onPress={() => setCreateModalVisible(true)}>
+              <Ionicons name="add" size={16} color="#FFFFFF" />
+              <Text style={styles.createMingleButtonText}>{tx("밍글 만들기", "Create")}</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.groupFilterHeader}>
+            <View style={styles.groupFilterRow}>
+              {[
+                GROUP_SIZE_FILTER_ALL,
+                GROUP_SIZE_FILTER_2,
+                GROUP_SIZE_FILTER_3,
+                GROUP_SIZE_FILTER_4,
+                GROUP_SIZE_FILTER_5PLUS,
+              ].map((filter) => {
+                const active = groupSizeFilter === filter;
+                return (
+                  <Pressable
+                    key={filter}
+                    style={[styles.groupFilterChip, active && styles.groupFilterChipActive]}
+                    onPress={() => setGroupSizeFilter(filter)}
+                  >
+                    <Text style={[styles.groupFilterText, active && styles.groupFilterTextActive]}>
+                      {filter === GROUP_SIZE_FILTER_ALL ? tx("전체", "All") : `${filter}${tx("명", "")}`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
 
-        {loading ? <Text style={styles.infoText}>{tx("불러오는 중...", "Loading...")}</Text> : null}
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <View style={styles.listSheet}>
+          <View style={styles.sheetHandle} />
+          {loading ? <Text style={styles.infoText}>{tx("불러오는 중...", "Loading...")}</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {!loading && !error && mingleMarkers.length === 0 ? (
+            <Text style={styles.infoText}>{tx("표시 가능한 밍글 좌표가 없습니다.", "No coordinates to display.")}</Text>
+          ) : null}
 
-        {!loading && !error ? (
-          <>
-            <View style={styles.mapCard}>
-              <Text style={styles.mapTitle}>{tx("밍글 지도", "Mingle Map")}</Text>
-              <Text style={styles.mapSubtitle}>{tx("카드를 선택하면 지도에서 해당 밍글 위치가 강조됩니다.", "Select a card to highlight its location on the map.")}</Text>
-              <MapView style={styles.map} region={mapRegion}>
-                {mingleMarkers.map((marker) => (
-                  <Marker
-                    key={marker.id}
-                    coordinate={marker.coordinate}
-                    onPress={() => setSelectedMingleId(marker.id)}
-                  >
-                    <Image
-                      source={
-                        Number(selectedMingleId) === Number(marker.id)
-                          ? require("../../images/mingle_marker_selected.png")
-                          : require("../../images/mingle_marker_unselected.png")
-                      }
-                      style={styles.markerImage}
-                    />
-                  </Marker>
-                ))}
-              </MapView>
-              {mingleMarkers.length === 0 ? <Text style={styles.mapEmpty}>{tx("표시 가능한 밍글 좌표가 없습니다.", "No coordinates to display.")}</Text> : null}
-            </View>
-
-            {filteredGroupRows.map((row) => {
+          <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
+            {!loading && !error ? filteredGroupRows.map((row) => {
               const joined = joinedMingleIdSet.has(row?.mingle?.id);
               const minglerCount = row?.minglers?.length ?? 0;
               const selected = Number(selectedMingleId) === Number(row?.mingle?.id);
@@ -610,14 +611,13 @@ export function Nearby({ route }) {
                   </Pressable>
                 </Pressable>
               );
-            })}
-          </>
-        ) : null}
-
-        {!loading && !error && filteredGroupRows.length === 0 ? (
-          <Text style={styles.infoText}>{tx("표시할 항목이 없습니다.", "Nothing to show.")}</Text>
-        ) : null}
-      </ScrollView>
+            }) : null}
+            {!loading && !error && filteredGroupRows.length === 0 ? (
+              <Text style={styles.infoText}>{tx("표시할 항목이 없습니다.", "Nothing to show.")}</Text>
+            ) : null}
+          </ScrollView>
+        </View>
+      </View>
 
       <Modal visible={drawerVisible} transparent animationType="slide" onRequestClose={() => setDrawerVisible(false)}>
         <View style={styles.drawerOverlay}>
@@ -801,12 +801,21 @@ export function Nearby({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F1F2F5",
-    paddingTop: 18,
+    backgroundColor: "#E8EDF5",
+  },
+  fullScreenMap: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlayLayer: {
+    flex: 1,
+    justifyContent: "space-between",
+  },
+  topOverlay: {
+    paddingTop: 54,
   },
   headerRow: {
     marginHorizontal: 20,
-    marginBottom: 8,
+    marginBottom: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -818,12 +827,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   groupFilterHeader: {
-    marginBottom: 2,
+    marginHorizontal: 20,
+    marginBottom: 10,
   },
   groupFilterRow: {
     flexDirection: "row",
     gap: 8,
-    flex: 1,
     flexWrap: "wrap",
   },
   groupFilterChip: {
@@ -848,25 +857,42 @@ const styles = StyleSheet.create({
   groupFilterTextActive: {
     color: "#1C73F0",
   },
-  content: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 28,
+  listSheet: {
+    minHeight: "42%",
+    maxHeight: "58%",
+    backgroundColor: "rgba(241,244,249,0.96)",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingTop: 8,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: "#C5CFDC",
+    marginBottom: 8,
+  },
+  sheetContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 22,
     gap: 10,
   },
   card: {
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E4E8EF",
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
   },
   cardSelected: {
-    borderColor: "#8DB9FF",
     backgroundColor: "#EAF3FF",
   },
   cardBody: {
@@ -926,40 +952,15 @@ const styles = StyleSheet.create({
     color: "#6F778B",
     fontSize: 13,
     textAlign: "center",
-    marginTop: 16,
+    marginTop: 10,
+    paddingHorizontal: 16,
   },
   errorText: {
     color: "#C62828",
     fontSize: 13,
     textAlign: "center",
-    marginTop: 6,
-  },
-  mapCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#E4E8EF",
-    backgroundColor: "#FFFFFF",
-    padding: 12,
-    gap: 6,
-  },
-  mapTitle: {
-    color: "#101827",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  mapSubtitle: {
-    color: "#6A7388",
-    fontSize: 12,
-  },
-  map: {
-    marginTop: 4,
-    height: 220,
-    width: "100%",
-    borderRadius: 12,
-  },
-  mapEmpty: {
-    color: "#6F778B",
-    fontSize: 12,
+    marginTop: 2,
+    paddingHorizontal: 16,
   },
   markerImage: {
     width: 26,
