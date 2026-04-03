@@ -48,6 +48,26 @@ function isAlreadyAcceptedQuickMatchError(event) {
   return reason.includes("already resolved") && reason.includes("accepted");
 }
 
+function resetToChatsThenOpenChatRoom(navigation, chatRoomId) {
+  navigation.reset({
+    index: 1,
+    routes: [
+      {
+        name: "Tabs",
+        params: {
+          screen: "Chats",
+        },
+      },
+      {
+        name: "ChatRoom",
+        params: {
+          chatRoomId,
+        },
+      },
+    ],
+  });
+}
+
 async function resolveDirectQuickMatchChatRoomId({ quickMatchId, acceptedByUserId }) {
   let resolvedAcceptedByUserId = Number(acceptedByUserId || 0);
 
@@ -195,7 +215,7 @@ export function QuickMatch({ navigation, route }) {
           };
           const acceptedChatRoomId = Number(event?.chatRoom?.id || 0);
           if (acceptedChatRoomId > 0) {
-            navigation.navigate("ChatRoom", { chatRoomId: acceptedChatRoomId });
+            resetToChatsThenOpenChatRoom(navigation, acceptedChatRoomId);
             return;
           }
           const resolvedDirectChatRoomId = await resolveDirectQuickMatchChatRoomId({
@@ -203,7 +223,7 @@ export function QuickMatch({ navigation, route }) {
             acceptedByUserId: Number(event?.quickMatch?.acceptedByUserId || 0),
           });
           if (resolvedDirectChatRoomId > 0) {
-            navigation.navigate("ChatRoom", { chatRoomId: resolvedDirectChatRoomId });
+            resetToChatsThenOpenChatRoom(navigation, resolvedDirectChatRoomId);
             return;
           }
           const acceptedMingleId = Number(event?.quickMatch?.mingleId || 0);
@@ -212,7 +232,7 @@ export function QuickMatch({ navigation, route }) {
               const joined = await joinMingleChatRoom(acceptedMingleId);
               const joinedChatRoomId = Number(joined?.chatRoom?.id || 0);
               if (joinedChatRoomId > 0) {
-                navigation.navigate("ChatRoom", { chatRoomId: joinedChatRoomId });
+                resetToChatsThenOpenChatRoom(navigation, joinedChatRoomId);
                 return;
               }
             } catch {
