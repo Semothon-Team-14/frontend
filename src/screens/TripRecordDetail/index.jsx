@@ -483,7 +483,6 @@ export function TripRecordDetail({ navigation, route }) {
             <Text style={styles.visitName}>{visit.placeName}</Text>
             <Text style={styles.visitSubName}>{visit.placeAddress}</Text>
             <View style={styles.visitThumbRow}>
-              {(visit?.imageUrls ?? []).length === 0 ? <View style={[styles.visitThumbImage, styles.visitThumbPlaceholder]} /> : null}
               {(visit?.imageUrls ?? []).map((imageUrl) => (
                 <Image key={`${visit.id}-${imageUrl}`} source={{ uri: imageUrl }} style={styles.visitThumbImage} />
               ))}
@@ -505,48 +504,48 @@ export function TripRecordDetail({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ECEDEF",
+    backgroundColor: "#F0F2F5",
   },
   contentContainer: {
     paddingTop: 52,
-    paddingHorizontal: 18,
-    paddingBottom: 32,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 28,
+    gap: 10,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   headerTitle: {
-    fontSize: 30,
-    fontWeight: "900",
+    fontSize: 31 / 2,
+    fontWeight: "800",
     color: "#171717",
-    letterSpacing: -0.4,
+    letterSpacing: -0.2,
   },
   headerSpacer: {
     width: 24,
   },
   heroCard: {
-    borderRadius: 24,
+    borderRadius: 18,
     overflow: "hidden",
-    backgroundColor: "#F7F7F8",
+    backgroundColor: "#F7F7FA",
   },
   heroImage: {
     width: "100%",
-    height: 156,
+    height: 160,
   },
   heroFallback: {
     width: "100%",
-    height: 156,
+    height: 160,
     backgroundColor: "#CAD7EF",
   },
   heroBody: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
-    backgroundColor: "#F4F4F6",
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 14,
+    backgroundColor: "#F6F7FA",
   },
   tripTopRow: {
     flexDirection: "row",
@@ -557,19 +556,19 @@ const styles = StyleSheet.create({
   tripTitleWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 4,
     flex: 1,
   },
   tripTitle: {
-    fontSize: 30,
-    fontWeight: "900",
+    fontSize: 17,
+    fontWeight: "800",
     color: "#151515",
-    letterSpacing: -0.4,
+    letterSpacing: -0.2,
     flexShrink: 1,
   },
   tripDateRange: {
-    fontSize: 20,
-    fontWeight: "900",
+    fontSize: 16,
+    fontWeight: "800",
     color: "#1D1E21",
   },
   tripSubRow: {
@@ -579,25 +578,25 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tripSubCity: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     color: "#A2A8B3",
   },
   tripDuration: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     color: "#A2A8B3",
   },
   divider: {
     height: 1,
     backgroundColor: "#E5E6EA",
-    marginVertical: 14,
+    marginVertical: 12,
   },
   sectionBlueTitle: {
     color: "#1D6FF2",
-    fontSize: 27,
-    fontWeight: "900",
-    marginBottom: 10,
+    fontSize: 22 / 2,
+    fontWeight: "800",
+    marginBottom: 8,
   },
   minglerColumns: {
     flexDirection: "row",
@@ -608,30 +607,30 @@ const styles = StyleSheet.create({
   },
   verticalDivider: {
     width: 1,
-    minHeight: 80,
+    minHeight: 72,
     backgroundColor: "#E1E3E8",
-    marginHorizontal: 10,
+    marginHorizontal: 8,
   },
   columnTitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#A0A7B4",
     fontWeight: "700",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   minglerRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     flexWrap: "wrap",
     alignItems: "flex-start",
   },
   minglerItem: {
     alignItems: "center",
-    width: 60,
+    width: 58,
   },
   minglerAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     overflow: "hidden",
     backgroundColor: "#C7CDDA",
   },
@@ -641,7 +640,7 @@ const styles = StyleSheet.create({
   },
   minglerName: {
     marginTop: 4,
-    fontSize: 10,
+    fontSize: 9,
     color: "#222325",
     fontWeight: "700",
   },
@@ -651,10 +650,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   visitsCard: {
-    backgroundColor: "#F4F4F6",
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    backgroundColor: "#F6F7FA",
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
   },
   emptyVisitText: {
     color: "#9AA2B0",
@@ -662,7 +661,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   visitItem: {
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   visitItemWithTopBorder: {
     borderTopWidth: 1,
@@ -670,41 +669,37 @@ const styles = StyleSheet.create({
   },
   visitDate: {
     color: "#6F7785",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     marginBottom: 2,
   },
   visitName: {
     color: "#17181A",
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 2,
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 1,
   },
   visitSubName: {
     color: "#7E8693",
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: "600",
   },
   visitThumbRow: {
     flexDirection: "row",
     gap: 8,
-    marginTop: 8,
+    marginTop: 7,
     flexWrap: "wrap",
   },
   visitThumbImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 14,
+    width: 64,
+    height: 64,
+    borderRadius: 12,
     backgroundColor: "#D5DAE4",
   },
-  visitThumbPlaceholder: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
   visitPlusTile: {
-    width: 70,
-    height: 70,
-    borderRadius: 14,
+    width: 64,
+    height: 64,
+    borderRadius: 12,
     backgroundColor: "#D5DAE4",
     alignItems: "center",
     justifyContent: "center",
