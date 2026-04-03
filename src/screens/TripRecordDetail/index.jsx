@@ -4,7 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocale } from "../../locale";
-import { fetchLocals } from "../../services/localService";
 import { fetchMingleMinglers, fetchMinglePlacePhotos, fetchMingles, uploadMinglePlacePhoto } from "../../services/mingleService";
 import { fetchAllCities } from "../../services/placeService";
 import { fetchTrip } from "../../services/tripService";
@@ -110,11 +109,10 @@ export function TripRecordDetail({ navigation, route }) {
 
     setLoading(true);
     try {
-      const [tripResponse, allCities, usersResponse, localsResponse, minglesResponse] = await Promise.all([
+      const [tripResponse, allCities, usersResponse, minglesResponse] = await Promise.all([
         fetchTrip(tripId),
         fetchAllCities(),
         fetchUsers(),
-        fetchLocals(),
         fetchMingles(),
       ]);
 
@@ -171,21 +169,20 @@ export function TripRecordDetail({ navigation, route }) {
       const relevantMingleRows = overlapMingleRows.length > 0 ? overlapMingleRows : joinedMingleRows;
 
       const mingleCompanionIds = new Set();
+      const companionLocalByUserId = new Map();
       relevantMingleRows.flatMap((row) => row?.minglers ?? []).forEach((mingler) => {
         const mingleUserId = Number(mingler?.userId || 0);
         if (mingleUserId > 0 && mingleUserId !== Number(userId)) {
           mingleCompanionIds.add(mingleUserId);
+          const existing = Boolean(companionLocalByUserId.get(mingleUserId));
+          companionLocalByUserId.set(
+            mingleUserId,
+            existing || Boolean(mingler?.local),
+          );
         }
       });
 
       const allCompanionIds = Array.from(mingleCompanionIds);
-      const locals = localsResponse?.locals ?? [];
-      const localUserIdsInTripCity = new Set(
-        locals
-          .filter((local) => Number(local?.city?.id) === Number(loadedTrip?.cityId))
-          .map((local) => Number(local?.userId || 0))
-          .filter((id) => id > 0),
-      );
 
       const mappedCompanions = allCompanionIds
         .filter((companionId) => Number(companionId) !== Number(userId))
@@ -195,7 +192,7 @@ export function TripRecordDetail({ navigation, route }) {
             id: companionId,
             name: companion?.name || `USER #${companionId}`,
             profileImageUrl: companion?.profileImageUrl || null,
-            local: localUserIdsInTripCity.has(companionId),
+            local: Boolean(companionLocalByUserId.get(companionId)),
           };
         })
         .slice(0, 12);
