@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import DirectionBlack from "../../icons/direction_black.svg";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
@@ -347,7 +346,6 @@ export function MyPage({ navigation }) {
         <View style={styles.locationCard}>
           <View style={styles.locationTopRow}>
             <Text style={styles.locationTitle}>{isKorean ? getCityNameKo(currentCity) : getCityNameEn(currentCity)}</Text>
-            <DirectionBlack />
           </View>
           <Text style={styles.locationSub}>{isKorean ? getCityNameEn(currentCity) : getCityNameKo(currentCity)}</Text>
           <View style={styles.locationDivider} />
