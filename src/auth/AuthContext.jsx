@@ -37,12 +37,22 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  async function login(username, password) {
+  async function login(username, password, options = {}) {
+    const { deferAuthState = false } = options;
     const loginToken = await loginRequest(username, password);
     setAccessToken(loginToken);
     await persistToken(loginToken);
-    setToken(loginToken);
+    if (!deferAuthState) {
+      setToken(loginToken);
+    }
     return loginToken;
+  }
+
+  function completeLogin(loginToken) {
+    if (!loginToken) {
+      return;
+    }
+    setToken(loginToken);
   }
 
   async function signup(payload) {
@@ -61,6 +71,7 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(token),
       isBootstrapping,
       login,
+      completeLogin,
       signup,
       logout,
     }),
