@@ -15,6 +15,7 @@ import { QuickMatch } from "../screens/QuickMatch/index.jsx";
 import { ChatRoom } from "../screens/ChatRoom/index.jsx";
 import { NotFound } from "../screens/NotFound/index.jsx";
 import { CreateTrip } from "../screens/CreateTrip";
+import { TripRecordDetail } from "../screens/TripRecordDetail";
 import { ProfileEdit } from "../screens/ProfileEdit";
 import { LoginScreen } from "../screens/Auth/Login";
 import { SignUpScreen } from "../screens/Auth/SignUp";
@@ -88,6 +89,7 @@ function AppStack() {
       <Stack.Screen name="QuickMatch" component={QuickMatch} />
       <Stack.Screen name="ChatRoom" component={ChatRoom} />
       <Stack.Screen name="CreateTrip" component={CreateTrip} />
+      <Stack.Screen name="TripRecordDetail" component={TripRecordDetail} />
       <Stack.Screen name="ProfileEdit" component={ProfileEdit} />
       <Stack.Screen
         name="NotFound"
