@@ -590,11 +590,6 @@ export function MainScreen() {
         </View>
 
         <View style={styles.locationSection}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              Home
-            </Text>
-          </View>
           <View style={styles.locationRow}>
           <Text style={styles.locationKo}>
               {selectedCityDisplayName || tx("어디로 떠나시나요?", "Where to next?")}
@@ -987,21 +982,6 @@ const styles = StyleSheet.create({
   },
   locationSection: {
     gap: 6,
-  },
-  badge: {
-    alignSelf: "flex-start",
-    borderRadius: 10,
-    backgroundColor: "#1C73F0",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  badgeOff: {
-    backgroundColor: "#64748B",
-  },
-  badgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
   },
   locationRow: {
     flexDirection: "row",
