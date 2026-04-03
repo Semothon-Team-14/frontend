@@ -198,7 +198,7 @@ export function MainScreen() {
   }, [activeChip]);
   const selectedCity = useMemo(() => {
     if (homeMode === HOME_MODE_LOCAL) {
-      return localCity || tripCity || null;
+      return localCity || null;
     }
 
     return tripCity || null;
