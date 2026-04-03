@@ -267,12 +267,12 @@ export function TripRecordDetail({ navigation, route }) {
         ? await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: false,
-            quality: 0.9,
+            quality: 0.55,
           })
         : await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: false,
-            quality: 0.9,
+            quality: 0.55,
           });
     } catch {
       Alert.alert(tx("사진 업로드", "Photo Upload"), tx("사진을 불러올 수 없습니다.", "Unable to open photo picker."));
