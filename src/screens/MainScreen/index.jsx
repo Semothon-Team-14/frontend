@@ -194,7 +194,7 @@ export function MainScreen() {
       return localCity || tripCity || null;
     }
 
-    return tripCity || localCity || null;
+    return tripCity || null;
   }, [homeMode, localCity, tripCity]);
   const selectedCityDisplayName = useMemo(() => {
     if (!selectedCity) {
