@@ -26,10 +26,15 @@ export function createQuickMatchSocketClient({ onConnect, onError } = {}) {
   const client = new Client({
     connectHeaders: {
       accessToken: token || "",
+      Authorization: token ? `Bearer ${token}` : "",
     },
-    reconnectDelay: 200,
+    reconnectDelay: 1500,
+    connectionTimeout: 6000,
     heartbeatIncoming: 10000,
     heartbeatOutgoing: 10000,
+    debug: (message) => {
+      debugLog("STOMP_DEBUG", message);
+    },
     webSocketFactory: () => {
       debugLog("OPEN_WEBSOCKET", websocketUrl);
       return new WebSocket(websocketUrl);
@@ -69,6 +74,22 @@ export function createQuickMatchSocketClient({ onConnect, onError } = {}) {
     if (typeof onError === "function") {
       onError("WebSocket disconnected, reconnecting...");
     }
+  };
+
+  client.onUnhandledFrame = (frame) => {
+    debugLog("UNHANDLED_FRAME", frame?.headers || {}, frame?.body || "");
+  };
+
+  client.onUnhandledMessage = (message) => {
+    debugLog("UNHANDLED_MESSAGE", message?.headers || {}, message?.body || "");
+  };
+
+  client.onUnhandledReceipt = (receipt) => {
+    debugLog("UNHANDLED_RECEIPT", receipt);
+  };
+
+  client.onChangeState = (state) => {
+    debugLog("STATE", state);
   };
 
   return client;
