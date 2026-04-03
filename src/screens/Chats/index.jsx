@@ -71,12 +71,13 @@ export function Chats({ navigation, route }) {
   const roomTabTypeById = useMemo(() => {
     const mapping = {};
     rooms.forEach((room) => {
-      if (Number(room?.mingleId || 0) > 0) {
+      const participantCount = Number(room?.participantUserIds?.length || 0);
+      if (participantCount > 2) {
         mapping[room.id] = TAB_TRAVELER;
         return;
       }
 
-      if (room?.directChat && room?.otherParticipantLocal === true) {
+      if (participantCount === 2 && room?.otherParticipantLocal === true) {
         mapping[room.id] = TAB_LOCAL;
         return;
       }
