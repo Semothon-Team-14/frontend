@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerTitle: {
-    fontSize: 33,
+    fontSize: 30,
     fontWeight: "700",
     color: "#1A1C21",
   },
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: "#8A95A8",
-    fontSize: 12,
+    fontSize: 24,
     fontWeight: "700",
   },
   tabTextActive: {
