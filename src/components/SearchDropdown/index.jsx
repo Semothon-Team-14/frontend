@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useLocale } from "../../locale";
 
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
@@ -15,8 +16,10 @@ export function SearchDropdown({
   getItemKey,
   getItemLabel,
   getItemSearchText,
-  emptyText = "검색 결과가 없습니다.",
+  emptyText,
 }) {
+  const { tx } = useLocale();
+  const resolvedEmptyText = emptyText || tx("검색 결과가 없습니다.", "No matching results.");
   const [isFocused, setIsFocused] = useState(false);
   const blurTimeoutRef = useRef(null);
   const optionTapInProgressRef = useRef(false);
@@ -76,7 +79,7 @@ export function SearchDropdown({
       {showDropdown ? (
         <View style={styles.dropdown}>
           {filteredItems.length === 0 ? (
-            <Text style={styles.emptyText}>{emptyText}</Text>
+            <Text style={styles.emptyText}>{resolvedEmptyText}</Text>
           ) : (
             <FlatList
               keyboardShouldPersistTaps="always"
