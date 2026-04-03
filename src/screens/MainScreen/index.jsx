@@ -3,6 +3,7 @@ import { ActivityIndicator, ImageBackground, Pressable, ScrollView, StyleSheet, 
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import MapView, { Marker } from "react-native-maps";
 import Person from "../../icons/person.svg";
 import Alarm from "../../icons/alarm.svg";
 import Position from "../../icons/position.svg";
@@ -22,6 +23,9 @@ import {
   fetchSavedRestaurants,
   fetchRestaurantImages,
   fetchRestaurantsByCity,
+  fetchMingles,
+  fetchMingleMinglers,
+  fetchLocals,
   fetchTrips,
 } from "../../services";
 import { fetchAllCities } from "../../services/placeService";
@@ -33,6 +37,8 @@ const CHIPS = [
   { id: "shopping", label: "#쇼핑", supported: false },
   { id: "fun", label: "#놀거리", supported: false },
 ];
+const HOME_MODE_TRAVELER = "TRAVELER";
+const HOME_MODE_LOCAL = "LOCAL";
 
 function ChipRow({ activeId, onSelect }) {
   return (
@@ -60,9 +66,11 @@ function ChipRow({ activeId, onSelect }) {
 export function MainScreen() {
   const navigation = useNavigation();
   const { token, logout } = useAuth();
+  const [homeMode, setHomeMode] = useState(HOME_MODE_TRAVELER);
   const [activeChip, setActiveChip] = useState("restaurant");
   const [currentTrip, setCurrentTrip] = useState(null);
-  const [selectedCity, setSelectedCity] = useState(null);
+  const [tripCity, setTripCity] = useState(null);
+  const [localCity, setLocalCity] = useState(null);
   const [places, setPlaces] = useState([]);
   const [placesByType, setPlacesByType] = useState({ restaurant: [], cafe: [] });
   const [placeLoading, setPlaceLoading] = useState(false);
@@ -70,6 +78,9 @@ export function MainScreen() {
   const [homeDataVersion, setHomeDataVersion] = useState(0);
   const [savedRestaurantByPlaceId, setSavedRestaurantByPlaceId] = useState({});
   const [savedCafeByPlaceId, setSavedCafeByPlaceId] = useState({});
+  const [localMingleRows, setLocalMingleRows] = useState([]);
+  const [localMingleLoading, setLocalMingleLoading] = useState(false);
+  const [localMingleError, setLocalMingleError] = useState(null);
   const placeRequestSequenceRef = useRef(0);
 
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
@@ -84,6 +95,13 @@ export function MainScreen() {
 
     return null;
   }, [activeChip]);
+  const selectedCity = useMemo(() => {
+    if (homeMode === HOME_MODE_LOCAL) {
+      return localCity || tripCity || null;
+    }
+
+    return tripCity || localCity || null;
+  }, [homeMode, localCity, tripCity]);
 
   async function enrichWithImages(items, type) {
     return Promise.all(
@@ -155,15 +173,18 @@ export function MainScreen() {
 
   async function loadHome() {
     try {
-      const [allCities, tripsResponse, savedRestaurantsResponse, savedCafesResponse] = await Promise.all([
+      const [allCities, tripsResponse, savedRestaurantsResponse, savedCafesResponse, localsResponse] = await Promise.all([
         fetchAllCities(),
         fetchTrips(),
         fetchSavedRestaurants(),
         fetchSavedCafes(),
+        fetchLocals(),
       ]);
       const userTrips = (tripsResponse?.trips ?? []).filter((trip) => Number(trip?.userId) === Number(userId));
       const trip = pickCurrentTrip(userTrips);
-      const city = allCities.find((item) => Number(item?.id) === Number(trip?.cityId)) || null;
+      const nextTripCity = allCities.find((item) => Number(item?.id) === Number(trip?.cityId)) || null;
+      const latestLocal = (localsResponse?.locals ?? [])[0] || null;
+      const nextLocalCity = allCities.find((item) => Number(item?.id) === Number(latestLocal?.city?.id)) || latestLocal?.city || null;
       const savedRestaurantMap = (savedRestaurantsResponse?.savedRestaurants ?? []).reduce((acc, saved) => {
         const placeId = saved?.restaurant?.id;
         if (placeId) {
@@ -182,21 +203,29 @@ export function MainScreen() {
       }, {});
 
       setCurrentTrip(trip);
-      setSelectedCity(city);
+      setTripCity(nextTripCity);
+      setLocalCity(nextLocalCity);
       setPlacesByType({ restaurant: [], cafe: [] });
       setPlaces([]);
       setPlaceError(null);
       setPlaceLoading(false);
+      setLocalMingleRows([]);
+      setLocalMingleError(null);
+      setLocalMingleLoading(false);
       setSavedRestaurantByPlaceId(savedRestaurantMap);
       setSavedCafeByPlaceId(savedCafeMap);
       setHomeDataVersion((prev) => prev + 1);
     } catch {
       setCurrentTrip(null);
-      setSelectedCity(null);
+      setTripCity(null);
+      setLocalCity(null);
       setPlaces([]);
       setPlacesByType({ restaurant: [], cafe: [] });
       setPlaceLoading(false);
       setPlaceError(null);
+      setLocalMingleRows([]);
+      setLocalMingleError(null);
+      setLocalMingleLoading(false);
       setSavedRestaurantByPlaceId({});
       setSavedCafeByPlaceId({});
       setHomeDataVersion((prev) => prev + 1);
@@ -210,8 +239,56 @@ export function MainScreen() {
   );
 
   useEffect(() => {
+    if (homeMode !== HOME_MODE_TRAVELER) {
+      return;
+    }
     loadPlacesForType(selectedCity?.id, activePlaceType);
-  }, [selectedCity?.id, activePlaceType, homeDataVersion]);
+  }, [homeMode, selectedCity?.id, activePlaceType, homeDataVersion]);
+
+  useEffect(() => {
+    if (homeMode !== HOME_MODE_LOCAL) {
+      return;
+    }
+
+    async function loadLocalMingles() {
+      if (!selectedCity?.id) {
+        setLocalMingleRows([]);
+        setLocalMingleLoading(false);
+        setLocalMingleError(null);
+        return;
+      }
+
+      setLocalMingleLoading(true);
+      setLocalMingleError(null);
+
+      try {
+        const mingleResponse = await fetchMingles({ cityId: selectedCity.id });
+        const mingles = mingleResponse?.mingles ?? [];
+        const minglersByMingle = await Promise.all(
+          mingles.map(async (mingle) => {
+            try {
+              const response = await fetchMingleMinglers(mingle?.id);
+              return response?.minglers ?? [];
+            } catch {
+              return [];
+            }
+          }),
+        );
+        const rows = mingles.map((mingle, index) => ({
+          mingle,
+          minglers: minglersByMingle[index] ?? [],
+        }));
+        setLocalMingleRows(rows);
+      } catch {
+        setLocalMingleRows([]);
+        setLocalMingleError("밍글 지도를 불러오지 못했습니다.");
+      } finally {
+        setLocalMingleLoading(false);
+      }
+    }
+
+    loadLocalMingles();
+  }, [homeMode, selectedCity?.id, homeDataVersion]);
 
   async function handleSave(placeId) {
     if (activePlaceType === "cafe") {
@@ -254,6 +331,41 @@ export function MainScreen() {
 
   const visiblePlaces = places.slice(0, 3);
   const quickMatchEnabled = Boolean(selectedCity?.id);
+  const localMarkers = useMemo(() => {
+    return localMingleRows
+      .map((row) => {
+        const latitude = Number(row?.mingle?.latitude);
+        const longitude = Number(row?.mingle?.longitude);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          return null;
+        }
+
+        return {
+          id: row?.mingle?.id,
+          title: row?.mingle?.title || "밍글",
+          coordinate: { latitude, longitude },
+          minglerCount: row?.minglers?.length ?? 0,
+        };
+      })
+      .filter(Boolean);
+  }, [localMingleRows]);
+  const localMapRegion = useMemo(() => {
+    if (localMarkers.length > 0) {
+      return {
+        latitude: localMarkers[0].coordinate.latitude,
+        longitude: localMarkers[0].coordinate.longitude,
+        latitudeDelta: 0.08,
+        longitudeDelta: 0.08,
+      };
+    }
+
+    return {
+      latitude: 37.5665,
+      longitude: 126.978,
+      latitudeDelta: 0.25,
+      longitudeDelta: 0.25,
+    };
+  }, [localMarkers]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -267,6 +379,21 @@ export function MainScreen() {
         <Alarm />
       </View>
 
+      <View style={styles.modeToggleRow}>
+        <Pressable
+          style={[styles.modeToggleButton, homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive]}
+          onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
+        >
+          <Text style={[styles.modeToggleText, homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive]}>여행자</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.modeToggleButton, homeMode === HOME_MODE_LOCAL && styles.modeToggleButtonActive]}
+          onPress={() => setHomeMode(HOME_MODE_LOCAL)}
+        >
+          <Text style={[styles.modeToggleText, homeMode === HOME_MODE_LOCAL && styles.modeToggleTextActive]}>로컬</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.locationSection}>
         <View style={[styles.badge, !quickMatchEnabled && styles.badgeOff]}><Text style={styles.badgeText}>{quickMatchEnabled ? "Now" : "Off"}</Text></View>
         <View style={styles.locationRow}>
@@ -276,6 +403,7 @@ export function MainScreen() {
         <Text style={styles.locationEn}>{selectedCity?.name || "Where is next?"}</Text>
       </View>
 
+      {homeMode === HOME_MODE_TRAVELER ? (
       <View style={styles.quickRow}>
         <TouchableWithoutFeedback onPress={() => navigation.navigate("Nearby", { cityId: selectedCity?.id })}>
           <View style={styles.nearbyCard}>
@@ -310,14 +438,18 @@ export function MainScreen() {
           </TouchableWithoutFeedback>
         </View>
       </View>
+      ) : null}
 
+      {homeMode === HOME_MODE_TRAVELER ? (
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>실시간 인기</Text>
         <Text style={styles.sectionTime}>AM 9:00</Text>
       </View>
+      ) : null}
 
-      <ChipRow activeId={activeChip} onSelect={setActiveChip} />
+      {homeMode === HOME_MODE_TRAVELER ? <ChipRow activeId={activeChip} onSelect={setActiveChip} /> : null}
 
+      {homeMode === HOME_MODE_TRAVELER ? (
       <View style={styles.popularPanel}>
         {visiblePlaces.map((place, idx) => (
           <Pressable key={place.id || idx} style={styles.placeCard}>
@@ -370,6 +502,33 @@ export function MainScreen() {
           <Ionicons name="chevron-forward" size={14} color="#818181" />
         </View>
       </View>
+      ) : null}
+
+      {homeMode === HOME_MODE_LOCAL ? (
+        <View style={styles.localMapPanel}>
+          <View style={styles.localMapHeader}>
+            <Text style={styles.localMapTitle}>현재 밍글 지도</Text>
+            <Text style={styles.localMapSubtitle}>{selectedCity?.name || "도시를 설정해주세요."}</Text>
+          </View>
+          {localMingleLoading ? (
+            <View style={styles.pendingWrap}>
+              <ActivityIndicator size="small" color="#1C73F0" />
+              <Text style={styles.pendingText}>밍글을 불러오는 중...</Text>
+            </View>
+          ) : null}
+          {localMingleError ? <Text style={styles.emptyText}>{localMingleError}</Text> : null}
+          {!localMingleLoading && !localMingleError ? (
+            <MapView key={`local-map-${selectedCity?.id || "default"}`} style={styles.localMap} region={localMapRegion}>
+              {localMarkers.map((marker) => (
+                <Marker key={marker.id} coordinate={marker.coordinate} title={marker.title} description={`참여 ${marker.minglerCount}명`} />
+              ))}
+            </MapView>
+          ) : null}
+          {!localMingleLoading && !localMingleError && localMarkers.length === 0 ? (
+            <Text style={styles.localMapEmptyText}>표시할 밍글 좌표가 없습니다.</Text>
+          ) : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -387,6 +546,31 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     alignItems: "center",
     gap: 14,
+  },
+  modeToggleRow: {
+    flexDirection: "row",
+    backgroundColor: "#E8ECF3",
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  modeToggleButton: {
+    flex: 1,
+    height: 34,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modeToggleButtonActive: {
+    backgroundColor: "#FFFFFF",
+  },
+  modeToggleText: {
+    color: "#6B7280",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  modeToggleTextActive: {
+    color: "#1C73F0",
   },
   logoutMiniButton: {
     borderRadius: 12,
@@ -674,5 +858,35 @@ const styles = StyleSheet.create({
     color: "#4B5563",
     fontSize: 13,
     fontWeight: "600",
+  },
+  localMapPanel: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 12,
+    gap: 8,
+  },
+  localMapHeader: {
+    gap: 2,
+  },
+  localMapTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#101827",
+  },
+  localMapSubtitle: {
+    fontSize: 13,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  localMap: {
+    width: "100%",
+    height: 260,
+    borderRadius: 14,
+  },
+  localMapEmptyText: {
+    color: "#8A8A8A",
+    fontSize: 13,
+    textAlign: "center",
+    paddingBottom: 4,
   },
 });
