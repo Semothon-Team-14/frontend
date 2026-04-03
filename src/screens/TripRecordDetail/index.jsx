@@ -5,7 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useLocale } from "../../locale";
 import { fetchChatRooms } from "../../services/chatService";
 import { fetchLocals } from "../../services/localService";
-import { fetchMingleMinglers, fetchMingles } from "../../services/mingleService";
+import { fetchMingleMinglers, fetchMinglePlacePhotos, fetchMingles } from "../../services/mingleService";
 import { fetchAllCities } from "../../services/placeService";
 import { fetchTrip } from "../../services/tripService";
 import { fetchUsers } from "../../services/userService";
@@ -186,6 +186,7 @@ export function TripRecordDetail({ navigation, route }) {
         .filter((mingle) => String(mingle?.placeName || "").trim().length > 0)
         .map((mingle) => ({
           id: `m-${mingle?.id}`,
+          mingleId: Number(mingle?.id || 0),
           placeName: String(mingle?.placeName || "-"),
           placeAddress: "",
           visitedAt: mingle?.meetDateTime || mingle?.updatedDateTime || mingle?.createdDateTime || null,
@@ -203,7 +204,23 @@ export function TripRecordDetail({ navigation, route }) {
         seenNames.add(key);
         uniqueByPlaceName.push(visit);
       });
-      setVisitedPlaces(uniqueByPlaceName.slice(0, 10));
+      const visitsWithPhotos = await Promise.all(
+        uniqueByPlaceName.slice(0, 10).map(async (visit) => {
+          if (!visit.mingleId) {
+            return visit;
+          }
+          try {
+            const response = await fetchMinglePlacePhotos(visit.mingleId);
+            return {
+              ...visit,
+              imageUrl: response?.photos?.[0]?.imageUrl || null,
+            };
+          } catch {
+            return visit;
+          }
+        }),
+      );
+      setVisitedPlaces(visitsWithPhotos);
     } catch {
       setTrip(null);
       setCity(null);
