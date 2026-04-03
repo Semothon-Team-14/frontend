@@ -323,13 +323,13 @@ export function MainScreen() {
   async function loadHome() {
     try {
       const [
-        allCities,
-        tripsResponse,
-        savedRestaurantsResponse,
-        savedCafesResponse,
-        localsResponse,
-        userResponse,
-      ] = await Promise.all([
+        allCitiesResult,
+        tripsResult,
+        savedRestaurantsResult,
+        savedCafesResult,
+        localsResult,
+        userResult,
+      ] = await Promise.allSettled([
         fetchAllCities(),
         fetchTrips(),
         fetchSavedRestaurants(),
@@ -337,6 +337,19 @@ export function MainScreen() {
         fetchLocals(),
         fetchUser(userId),
       ]);
+      const allCities = allCitiesResult.status === "fulfilled" ? allCitiesResult.value : [];
+      const tripsResponse = tripsResult.status === "fulfilled" ? tripsResult.value : { trips: [] };
+      const savedRestaurantsResponse =
+        savedRestaurantsResult.status === "fulfilled"
+          ? savedRestaurantsResult.value
+          : { savedRestaurants: [] };
+      const savedCafesResponse =
+        savedCafesResult.status === "fulfilled"
+          ? savedCafesResult.value
+          : { savedCafes: [] };
+      const localsResponse =
+        localsResult.status === "fulfilled" ? localsResult.value : { locals: [] };
+      const userResponse = userResult.status === "fulfilled" ? userResult.value : { user: null };
       const userTrips = (tripsResponse?.trips ?? []).filter(
         (trip) => Number(trip?.userId) === Number(userId),
       );
