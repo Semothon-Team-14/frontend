@@ -139,6 +139,7 @@ export function CreateTrip({ navigation, route }) {
   const [submitting, setSubmitting] = useState(false);
   const [loadingInitialData, setLoadingInitialData] = useState(false);
   const [scanningTicket, setScanningTicket] = useState(false);
+  const [dateModalVisible, setDateModalVisible] = useState(false);
   const [error, setError] = useState(null);
 
   const tripId = Number(route?.params?.tripId || 0);
@@ -212,6 +213,11 @@ export function CreateTrip({ navigation, route }) {
   }, [isEditMode, submitting, tx]);
 
   const nights = useMemo(() => getNights(startDate, endDate), [startDate, endDate]);
+  const dateRangeText = useMemo(() => {
+    const from = startDate ? startDate.replaceAll("-", ".") : "0000.00.00";
+    const to = endDate ? endDate.replaceAll("-", ".") : "0000.00.00";
+    return `${from}   ~   ${to}`;
+  }, [endDate, startDate]);
 
   function handleCityPickerQueryChange(nextQuery) {
     setCityPickerQuery(nextQuery);
@@ -407,6 +413,7 @@ export function CreateTrip({ navigation, route }) {
               </Pressable>
             </View>
             <Text style={styles.tripLocationSubtitle}>{getCitySubName(fromCity, isKorean) || String(fromAirportCode || EMPTY_FIELD)}</Text>
+            <Text style={styles.tripLocationClock}>{formatTime(departureDateTime, locale)}</Text>
             <Text style={styles.tripLocationTime}>{formatDateMeta(toDateOnly(departureDateTime) || startDate, locale)}</Text>
           </View>
         </View>
@@ -419,26 +426,16 @@ export function CreateTrip({ navigation, route }) {
           )}
           <View style={styles.tripLocationMeta}>
             <View style={styles.tripCityEditRow}>
-              <Text style={styles.tripLocationTitle}>{getCityDisplayName(selectedCity, isKorean) || EMPTY_FIELD}</Text>
+              <Text style={[styles.tripLocationTitle, styles.tripLocationTitleTo]}>{getCityDisplayName(selectedCity, isKorean) || EMPTY_FIELD}</Text>
               <Pressable onPress={() => openCityPicker("to")} hitSlop={10}>
                 <Ionicons name="pencil" size={14} color="#AAB0BB" />
               </Pressable>
             </View>
             <Text style={styles.tripLocationSubtitle}>{getCitySubName(selectedCity, isKorean) || String(toAirportCode || EMPTY_FIELD)}</Text>
+            <Text style={styles.tripLocationClock}>{formatTime(departureLandingDateTime, locale)}</Text>
             <Text style={styles.tripLocationTime}>{formatDateMeta(toDateOnly(departureLandingDateTime) || startDate, locale)}</Text>
           </View>
         </View>
-      </View>
-
-      <View style={styles.scanRow}>
-        <Pressable
-          style={[styles.scanButton, scanningTicket && styles.scanButtonDisabled]}
-          onPress={handlePickTicketFromGallery}
-          disabled={scanningTicket || submitting || loadingInitialData}
-        >
-          <Ionicons name="images-outline" size={18} color="#1D6FF2" />
-          <Text style={styles.scanButtonText}>{tx("갤러리에서 티켓 불러오기", "Scan Ticket from Gallery")}</Text>
-        </Pressable>
       </View>
 
       <View style={styles.scheduleHeader}>
@@ -448,28 +445,10 @@ export function CreateTrip({ navigation, route }) {
         </Text>
       </View>
 
-      <View style={styles.dateRangeCard}>
-        <CalendarDateField
-          label={tx("출국일", "Departure date")}
-          value={startDate}
-          onChange={(dateValue) => {
-            setStartDate(dateValue);
-            if (endDate && endDate < dateValue) {
-              setEndDate(dateValue);
-            }
-          }}
-          maxDate={endDate || undefined}
-          placeholder={tx("날짜 선택", "Select date")}
-        />
-
-        <CalendarDateField
-          label={tx("여행 종료일", "Trip end date")}
-          value={endDate}
-          onChange={setEndDate}
-          minDate={startDate || undefined}
-          placeholder={tx("날짜 선택", "Select date")}
-        />
-      </View>
+      <Pressable style={styles.dateRangeCard} onPress={() => setDateModalVisible(true)}>
+        <Text style={styles.dateRangeText}>{dateRangeText}</Text>
+        <Ionicons name="calendar-outline" size={18} color="#A4ACBA" />
+      </Pressable>
 
       {loadingInitialData ? <Text style={styles.metaText}>{tx("초기 데이터를 불러오는 중...", "Loading initial data...")}</Text> : null}
       {scanningTicket ? <Text style={styles.metaText}>{tx("티켓을 분석 중입니다...", "Analyzing ticket...")}</Text> : null}
@@ -515,6 +494,38 @@ export function CreateTrip({ navigation, route }) {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={dateModalVisible} transparent animationType="fade" onRequestClose={() => setDateModalVisible(false)}>
+        <View style={styles.pickerModalBackdrop}>
+          <View style={styles.pickerModalCard}>
+            <Text style={styles.pickerModalTitle}>{tx("여행 일정", "Travel Dates")}</Text>
+            <CalendarDateField
+              label={tx("출국일", "Departure date")}
+              value={startDate}
+              onChange={(dateValue) => {
+                setStartDate(dateValue);
+                if (endDate && endDate < dateValue) {
+                  setEndDate(dateValue);
+                }
+              }}
+              maxDate={endDate || undefined}
+              placeholder={tx("날짜 선택", "Select date")}
+            />
+            <CalendarDateField
+              label={tx("여행 종료일", "Trip end date")}
+              value={endDate}
+              onChange={setEndDate}
+              minDate={startDate || undefined}
+              placeholder={tx("날짜 선택", "Select date")}
+            />
+            <View style={styles.pickerActionRow}>
+              <Pressable style={styles.pickerDoneButton} onPress={() => setDateModalVisible(false)}>
+                <Text style={styles.pickerDoneText}>{tx("완료", "Done")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -523,10 +534,10 @@ const styles = StyleSheet.create({
   container: {
     minHeight: "100%",
     backgroundColor: "#F2F3F7",
-    paddingTop: 54,
+    paddingTop: 46,
     paddingHorizontal: 18,
-    paddingBottom: 28,
-    gap: 14,
+    paddingBottom: 26,
+    gap: 12,
   },
   headerRow: {
     flexDirection: "row",
@@ -535,18 +546,18 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#171717",
-    fontSize: 31,
-    fontWeight: "900",
-    letterSpacing: -0.4,
+    fontSize: 30 / 2,
+    fontWeight: "800",
+    letterSpacing: -0.2,
   },
   headerSpacer: {
     width: 24,
   },
   sectionTitle: {
     color: "#1B1B1B",
-    fontSize: 32,
-    fontWeight: "900",
-    letterSpacing: -0.5,
+    fontSize: 32 / 2,
+    fontWeight: "800",
+    letterSpacing: -0.2,
   },
   tripCardLabels: {
     flexDirection: "row",
@@ -556,7 +567,7 @@ const styles = StyleSheet.create({
   },
   tripCardLabel: {
     color: "#A0A7B5",
-    fontSize: 24,
+    fontSize: 12,
     fontWeight: "800",
     letterSpacing: 0.2,
     width: "48%",
@@ -569,26 +580,26 @@ const styles = StyleSheet.create({
   tripLocationCard: {
     width: "48%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: "hidden",
   },
   tripLocationImage: {
     width: "100%",
-    height: 182,
+    height: 128,
     backgroundColor: "#DCE7FF",
   },
   tripFallbackImage: {
     backgroundColor: "#D3E1FF",
   },
   tripLocationMeta: {
-    marginTop: -24,
+    marginTop: -18,
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 18,
-    minHeight: 172,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
+    minHeight: 120,
   },
   tripCityEditRow: {
     flexDirection: "row",
@@ -597,61 +608,56 @@ const styles = StyleSheet.create({
   },
   tripLocationTitle: {
     color: "#20232A",
-    fontSize: 36,
-    fontWeight: "900",
-    letterSpacing: -0.8,
+    fontSize: 34 / 2,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+  },
+  tripLocationTitleTo: {
+    color: "#1D6FF2",
   },
   tripLocationSubtitle: {
     color: "#A0A7B5",
-    fontSize: 26,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     marginTop: 2,
+  },
+  tripLocationClock: {
+    marginTop: 10,
+    color: "#20232A",
+    fontSize: 32 / 2,
+    fontWeight: "800",
+    letterSpacing: 0.1,
   },
   tripLocationTime: {
-    marginTop: 20,
-    color: "#20232A",
-    fontSize: 22,
-    fontWeight: "900",
-    letterSpacing: 0.2,
-  },
-  scanRow: {
-    gap: 8,
     marginTop: 2,
-  },
-  scanButton: {
-    minHeight: 42,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#EAF2FF",
-  },
-  scanButtonDisabled: {
-    opacity: 0.7,
-  },
-  scanButtonText: {
-    color: "#1D6FF2",
-    fontSize: 14,
+    color: "#A2AABA",
+    fontSize: 10.5,
     fontWeight: "700",
   },
   scheduleHeader: {
-    marginTop: 4,
+    marginTop: 10,
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     justifyContent: "space-between",
   },
   scheduleMeta: {
     color: "#A0A7B5",
-    fontSize: 26,
-    fontWeight: "800",
-    marginBottom: 2,
+    fontSize: 13,
+    fontWeight: "700",
   },
   dateRangeCard: {
+    height: 48,
     borderRadius: 24,
-    backgroundColor: "#FFFFFF",
-    padding: 12,
-    gap: 8,
+    backgroundColor: "#ECEFF4",
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  dateRangeText: {
+    color: "#A3ABBA",
+    fontSize: 14,
+    fontWeight: "700",
   },
   metaText: {
     color: "#5E6E88",
@@ -664,9 +670,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   submitButton: {
-    marginTop: 8,
-    height: 58,
-    borderRadius: 29,
+    marginTop: 10,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: "#1D6FF2",
     alignItems: "center",
     justifyContent: "center",
@@ -676,7 +682,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: "#FFFFFF",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
     letterSpacing: 0.1,
   },
