@@ -9,11 +9,6 @@ import {
   subscribeUserQuickMatches,
 } from "../../services/quickMatchSocketService";
 
-const OPTION_ITEMS = [
-  { key: "LOCALS", title: "로컬 밍글러", subtitle: "여행 가이드" },
-  { key: "MINGLERS", title: "여행자 밍글러", subtitle: "여행 동반자" },
-  { key: "ANY", title: "무관", subtitle: "상관없어요" },
-];
 const INTEREST_ITEMS = [
   { key: "MEAL", label: "#식사" },
   { key: "HOBBY", label: "#취미생활" },
@@ -21,8 +16,6 @@ const INTEREST_ITEMS = [
   { key: "REST", label: "#휴식" },
   { key: "ANY", label: "#상관없어요" },
 ];
-const STEP_INTEREST = 0;
-const STEP_TARGET = 1;
 const MIN_PROGRESS_VISIBLE_MS = 1200;
 
 function formatElapsed(seconds) {
@@ -46,8 +39,6 @@ async function waitForSocketConnected(client, timeoutMs = 5000) {
 export function QuickMatch({ navigation, route }) {
   const { token } = useAuth();
   const userId = useMemo(() => Number(decodeUserIdFromToken(token) || 0), [token]);
-  const [selected, setSelected] = useState("MINGLERS");
-  const [selectionStep, setSelectionStep] = useState(STEP_INTEREST);
   const [selectedInterestKeys, setSelectedInterestKeys] = useState(["ANY"]);
   const [submitting, setSubmitting] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -58,16 +49,11 @@ export function QuickMatch({ navigation, route }) {
   const mountedRef = useRef(true);
   const pendingRequestRef = useRef({
     cityId: null,
-    targetType: null,
     quickMatchId: null,
   });
   const clientRef = useRef(null);
   const userSubscriptionRef = useRef(null);
   const cityId = useMemo(() => Number(route?.params?.cityId || 1), [route?.params?.cityId]);
-  const selectedLabel = useMemo(
-    () => OPTION_ITEMS.find((item) => item.key === selected)?.title || selected,
-    [selected],
-  );
   const selectedInterestsLabel = useMemo(() => {
     return INTEREST_ITEMS
       .filter((item) => selectedInterestKeys.includes(item.key))
@@ -127,7 +113,6 @@ export function QuickMatch({ navigation, route }) {
       const isPendingQuickMatch =
         (pending.quickMatchId && quickMatchId === pending.quickMatchId) ||
         (Number(match?.cityId) === pending.cityId &&
-          String(match?.targetType || "") === pending.targetType &&
           Number(match?.requesterUserId) === userId);
 
       if (event?.eventType === "QUICK_MATCH_CREATED") {
@@ -144,7 +129,6 @@ export function QuickMatch({ navigation, route }) {
         setSubmitting(false);
         pendingRequestRef.current = {
           cityId: null,
-          targetType: null,
           quickMatchId: null,
         };
         navigation.goBack();
@@ -155,7 +139,6 @@ export function QuickMatch({ navigation, route }) {
         setSubmitting(false);
         pendingRequestRef.current = {
           cityId: null,
-          targetType: null,
           quickMatchId: null,
         };
         setError("빠른 매칭이 거절되었어요. 다시 시도해 주세요.");
@@ -166,7 +149,6 @@ export function QuickMatch({ navigation, route }) {
         setSubmitting(false);
         pendingRequestRef.current = {
           cityId: null,
-          targetType: null,
           quickMatchId: null,
         };
         setError(event?.reason || "빠른 매칭 요청 처리에 실패했습니다.");
@@ -177,7 +159,7 @@ export function QuickMatch({ navigation, route }) {
       userSubscriptionRef.current?.unsubscribe();
       userSubscriptionRef.current = null;
     };
-  }, [cityId, navigation, selected, socketReady, submitting, userId]);
+  }, [cityId, navigation, socketReady, submitting, userId]);
 
   useEffect(() => {
     return () => {
@@ -219,15 +201,11 @@ export function QuickMatch({ navigation, route }) {
   }, [submitting]);
 
   async function handleConfirm() {
-    if (selectionStep === STEP_INTEREST) {
-      if (selectedInterestKeys.length === 0) {
-        setError("함께 하고 싶은 활동을 하나 이상 선택해주세요.");
-        return;
-      }
-      setError(null);
-      setSelectionStep(STEP_TARGET);
+    if (selectedInterestKeys.length === 0) {
+      setError("Please choose at least one activity.");
       return;
     }
+    setError(null);
 
     if (!Number.isFinite(cityId) || cityId <= 0) {
       setError("유효한 도시 정보가 없어 빠른 매칭을 생성할 수 없습니다.");
@@ -239,7 +217,6 @@ export function QuickMatch({ navigation, route }) {
     setError(null);
     pendingRequestRef.current = {
       cityId,
-      targetType: String(selected || "ANY"),
       quickMatchId: null,
     };
     const requestStartedAt = Date.now();
@@ -251,7 +228,6 @@ export function QuickMatch({ navigation, route }) {
       await publishCreateQuickMatch(clientRef.current, {
         cityId,
         message: selectedInterestKeys.includes("ANY") ? null : selectedInterestsLabel,
-        targetType: String(selected || "ANY"),
       });
       const elapsedMs = Date.now() - requestStartedAt;
       if (elapsedMs < MIN_PROGRESS_VISIBLE_MS) {
@@ -269,12 +245,10 @@ export function QuickMatch({ navigation, route }) {
       setSubmitting(false);
       pendingRequestRef.current = {
         cityId: null,
-        targetType: null,
         quickMatchId: null,
       };
       console.warn("[QM CREATE] FAILED", {
         cityId,
-        targetType: selected,
         message,
       });
     }
@@ -301,57 +275,39 @@ export function QuickMatch({ navigation, route }) {
       <View style={styles.modal}>
         <View style={styles.topHandle} />
         <View style={styles.headerRow}>
-          <Text style={styles.title}>
-            {selectionStep === STEP_INTEREST ? "빠른 매칭을 시작할게요!" : "원하는 밍글러를 선택해주세요!"}
-          </Text>
+          <Text style={styles.title}>빠른 매칭을 시작할게요!</Text>
           <Pressable onPress={() => navigation.goBack()}>
             <Ionicons name="close" size={28} color="#111" />
           </Pressable>
         </View>
 
-        {selectionStep === STEP_INTEREST ? (
-          <>
-            <Text style={styles.sectionDescription}>여행자와 무엇을 함께 하고 싶나요?</Text>
-            <View style={styles.interestWrap}>
-              {INTEREST_ITEMS.map((item) => {
-                const active = selectedInterestKeys.includes(item.key);
-                return (
-                  <Pressable
-                    key={item.key}
-                    style={[styles.interestChip, active && styles.interestChipActive]}
-                    onPress={() => handleSelectInterest(item.key)}
-                  >
-                    <Text style={[styles.interestChipText, active && styles.interestChipTextActive]}>{item.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        ) : (
-          <View style={styles.optionsRow}>
-            {OPTION_ITEMS.map((option) => {
-              const active = selected === option.key;
+        <>
+          <Text style={styles.sectionDescription}>여행자와 무엇을 함께 하고 싶나요?</Text>
+          <View style={styles.interestWrap}>
+            {INTEREST_ITEMS.map((item) => {
+              const active = selectedInterestKeys.includes(item.key);
               return (
-                <Pressable key={option.key} style={[styles.optionCard, active && styles.optionCardActive]} onPress={() => setSelected(option.key)}>
-                  <Text style={[styles.optionTitle, active && styles.optionTitleActive]}>{option.title}</Text>
-                  <Text style={[styles.optionSubtitle, active && styles.optionSubtitleActive]}>{option.subtitle}</Text>
+                <Pressable
+                  key={item.key}
+                  style={[styles.interestChip, active && styles.interestChipActive]}
+                  onPress={() => handleSelectInterest(item.key)}
+                >
+                  <Text style={[styles.interestChipText, active && styles.interestChipTextActive]}>{item.label}</Text>
                 </Pressable>
               );
             })}
           </View>
-        )}
+        </>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {!socketReady ? <Text style={styles.metaText}>실시간 연결 중...</Text> : null}
 
         <Pressable
-          style={[styles.confirmBtn, (submitting || (!socketReady && selectionStep === STEP_TARGET)) && styles.confirmBtnDisabled]}
+          style={[styles.confirmBtn, (submitting || !socketReady) && styles.confirmBtnDisabled]}
           onPress={handleConfirm}
-          disabled={submitting || (!socketReady && selectionStep === STEP_TARGET)}
+          disabled={submitting || !socketReady}
         >
-          <Text style={styles.confirmText}>
-            {submitting ? "확인 중..." : selectionStep === STEP_INTEREST ? "다음" : "확인"}
-          </Text>
+          <Text style={styles.confirmText}>{submitting ? "확인 중..." : "확인"}</Text>
         </Pressable>
       </View>
 
@@ -362,7 +318,7 @@ export function QuickMatch({ navigation, route }) {
               <Ionicons name="close" size={18} color="#334155" />
             </Pressable>
             <Text style={styles.progressTitle}>빠른 매칭 요청 중</Text>
-            <Text style={styles.progressTarget}>{selectedLabel}</Text>
+            <Text style={styles.progressTarget}>현재 지역 전체에게 요청 중</Text>
             {selectedInterestsLabel ? <Text style={styles.progressInterest}>{selectedInterestsLabel}</Text> : null}
             <Text style={styles.progressDescription}>요청이 완료될 때까지 잠시만 기다려 주세요.</Text>
             <Text style={styles.progressElapsedLabel}>경과 시간</Text>
@@ -408,10 +364,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
-  optionsRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
   sectionDescription: {
     color: "#374151",
     fontSize: 14,
@@ -441,35 +393,6 @@ const styles = StyleSheet.create({
   },
   interestChipTextActive: {
     color: "#165FC6",
-  },
-  optionCard: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E4E4E4",
-    paddingVertical: 14,
-    alignItems: "center",
-    backgroundColor: "#F3F3F3",
-  },
-  optionCardActive: {
-    borderColor: "#1C73F0",
-    backgroundColor: "#1C73F0",
-  },
-  optionTitle: {
-    color: "#666",
-    fontWeight: "700",
-    marginBottom: 2,
-    fontSize: 13,
-  },
-  optionTitleActive: {
-    color: "#fff",
-  },
-  optionSubtitle: {
-    color: "#8B8B8B",
-    fontSize: 11,
-  },
-  optionSubtitleActive: {
-    color: "#EAF2FF",
   },
   confirmBtn: {
     marginTop: 6,
