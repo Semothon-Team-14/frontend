@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import MapView, { Marker } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
@@ -13,7 +13,6 @@ import { fetchGooglePlaceDetails, searchGooglePlaces } from "../../services/goog
 const GROUP_SIZE_FILTER_ALL = "ALL";
 const GROUP_SIZE_FILTER_2 = "2";
 const GROUP_SIZE_FILTER_3 = "3";
-const GROUP_SIZE_FILTER_4 = "4";
 const GROUP_SIZE_FILTER_5PLUS = "5+";
 const TARGET_PARTICIPANT_OPTIONS = [2, 3, 4, 5];
 const DRAWER_COVERAGE_COLLAPSED = 0.42;
@@ -115,13 +114,14 @@ function isValidCoordinatePair(latitude, longitude) {
 }
 
 export function Nearby({ route }) {
+  const navigation = useNavigation();
   const { token } = useAuth();
   const { tx, locale } = useLocale();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [mingleRows, setMingleRows] = useState([]);
   const [joinedMingleIdSet, setJoinedMingleIdSet] = useState(new Set());
-  const [groupSizeFilter, setGroupSizeFilter] = useState(GROUP_SIZE_FILTER_ALL);
+  const [groupSizeFilter, setGroupSizeFilter] = useState(GROUP_SIZE_FILTER_3);
   const [selectedMingleId, setSelectedMingleId] = useState(null);
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(true);
@@ -178,10 +178,7 @@ export function Nearby({ route }) {
       if (groupSizeFilter === GROUP_SIZE_FILTER_3) {
         return count === 3;
       }
-      if (groupSizeFilter === GROUP_SIZE_FILTER_4) {
-        return count === 4;
-      }
-      return count >= 5;
+      return count >= 4;
     });
   }, [groupSizeFilter, mingleRows]);
 
@@ -546,6 +543,11 @@ export function Nearby({ route }) {
       </MapView>
 
       <View pointerEvents="box-none" style={styles.overlayLayer}>
+        <View style={styles.mapTopBar}>
+          <Pressable style={styles.mapBackButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={22} color="#1F2937" />
+          </Pressable>
+        </View>
         <View style={[styles.listSheet, sheetExpanded ? styles.listSheetExpanded : styles.listSheetCollapsed]}>
           <Pressable style={styles.sheetHandleButton} onPress={() => setSheetExpanded((prev) => !prev)}>
             <View style={styles.sheetHandle} />
@@ -560,10 +562,8 @@ export function Nearby({ route }) {
             <View style={styles.groupFilterHeader}>
               <View style={styles.groupFilterRow}>
                 {[
-                  GROUP_SIZE_FILTER_ALL,
                   GROUP_SIZE_FILTER_2,
                   GROUP_SIZE_FILTER_3,
-                  GROUP_SIZE_FILTER_4,
                   GROUP_SIZE_FILTER_5PLUS,
                 ].map((filter) => {
                   const active = groupSizeFilter === filter;
@@ -574,7 +574,7 @@ export function Nearby({ route }) {
                       onPress={() => setGroupSizeFilter(filter)}
                     >
                       <Text style={[styles.groupFilterText, active && styles.groupFilterTextActive]}>
-                        {filter === GROUP_SIZE_FILTER_ALL ? tx("전체", "All") : `${filter}${tx("명", "")}`}
+                        {filter === GROUP_SIZE_FILTER_5PLUS ? tx("4인 이상", "4+ people") : `${filter}${tx("인", " people")}`}
                       </Text>
                     </Pressable>
                   );
@@ -582,9 +582,15 @@ export function Nearby({ route }) {
               </View>
             </View>
             <Pressable style={styles.createMingleButton} onPress={() => setCreateModalVisible(true)}>
-              <Ionicons name="add" size={16} color="#FFFFFF" />
-              <Text style={styles.createMingleButtonText}>{tx("밍글 만들기", "Create")}</Text>
+              <Ionicons name="create-outline" size={16} color="#7B8AA6" />
             </Pressable>
+          </View>
+          <View style={styles.sheetSummaryRow}>
+            <Text style={styles.sheetSummaryText}>{tx(`총 ${filteredGroupRows.length}개의 밍글`, `${filteredGroupRows.length} mingles`)}</Text>
+            <View style={styles.sheetSortWrap}>
+              <Text style={styles.sheetSortText}>{tx("최신순", "Latest")}</Text>
+              <Ionicons name="chevron-down" size={14} color="#8A97AC" />
+            </View>
           </View>
           {loading ? <Text style={styles.infoText}>{tx("불러오는 중...", "Loading...")}</Text> : null}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -595,9 +601,7 @@ export function Nearby({ route }) {
           <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
             {!loading && !error ? filteredGroupRows.map((row) => {
               const joined = joinedMingleIdSet.has(row?.mingle?.id);
-              const minglerCount = row?.minglers?.length ?? 0;
               const selected = Number(selectedMingleId) === Number(row?.mingle?.id);
-              const meetAtText = row?.mingle?.meetDateTime ? toRelativeTimeLabel(row?.mingle?.meetDateTime, locale) : tx("시간 미정", "Time TBD");
               const placeNameText = row?.mingle?.placeName || tx("장소 미정", "Place TBD");
               const targetCount = Number(row?.mingle?.targetParticipantCount);
               const wantedCount = Number.isFinite(targetCount) && targetCount > 0 ? targetCount : null;
@@ -612,21 +616,19 @@ export function Nearby({ route }) {
                 >
                   <View style={styles.cardBody}>
                     <Text style={styles.name}>{row?.mingle?.title || tx("제목 없음", "Untitled")}</Text>
-                    <Text style={styles.meta}>{toRelativeTimeLabel(row?.mingle?.createdDateTime, locale)}</Text>
-                    <Text style={styles.description} numberOfLines={2}>
+                    <Text style={styles.meta}>
+                      {placeNameText} · {currentCount}/{wantedCount ? totalCountLabel : `${Math.max(2, currentCount)}${tx("명", "")}`} · {row?.mingle?.meetDateTime ? toMeetDateTimeLabel(new Date(row.mingle.meetDateTime), locale) : tx("시간 미정", "Time TBD")}
+                    </Text>
+                    <Text style={styles.description} numberOfLines={1}>
                       {row?.mingle?.description || tx("같이할 밍글러를 기다리고 있어요.", "Looking for minglers to join.")}
                     </Text>
-                    <Text style={styles.placeText}>📍 {placeNameText}</Text>
-                    <Text style={styles.meetText}>🕒 {meetAtText}</Text>
-                    {wantedCount ? <Text style={styles.countText}>{tx("인원", "People")} {currentCount}/{totalCountLabel}</Text> : null}
-                    {!wantedCount ? <Text style={styles.countText}>{tx("참여 중", "Joined")} {minglerCount}{tx("명", "")}</Text> : null}
                   </View>
                   <Pressable
                     style={[styles.actionButton, joined && styles.actionButtonActive]}
                     onPress={() => handleToggleJoin(row?.mingle?.id)}
                   >
                     <Text style={[styles.actionButtonText, joined && styles.actionButtonTextActive]}>
-                      {joined ? tx("취소", "Leave") : tx("참여", "Join")}
+                      {joined ? tx("참여중", "Joined") : tx("밍글", "Mingle")}
                     </Text>
                   </Pressable>
                 </Pressable>
@@ -830,6 +832,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
+  mapTopBar: {
+    position: "absolute",
+    top: 52,
+    left: 14,
+    zIndex: 3,
+  },
+  mapBackButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   groupFilterHeader: {
     flex: 1,
     marginRight: 8,
@@ -848,6 +864,7 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: "center",
     justifyContent: "center",
+    minWidth: 56,
   },
   groupFilterChipActive: {
     borderColor: "#1C73F0",
@@ -862,7 +879,7 @@ const styles = StyleSheet.create({
     color: "#1C73F0",
   },
   listSheet: {
-    backgroundColor: "rgba(241,244,249,0.96)",
+    backgroundColor: "rgba(245,247,251,0.98)",
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingTop: 8,
@@ -883,7 +900,7 @@ const styles = StyleSheet.create({
   },
   sheetTopRow: {
     paddingHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 6,
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
@@ -899,85 +916,93 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   sheetContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingBottom: 22,
-    gap: 10,
+    gap: 0,
   },
-  card: {
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  sheetSummaryRow: {
+    height: 28,
+    paddingHorizontal: 16,
+    marginBottom: 2,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+  },
+  sheetSummaryText: {
+    color: "#8B96A8",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  sheetSortWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  sheetSortText: {
+    color: "#8B96A8",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  card: {
+    backgroundColor: "transparent",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E8ECF3",
   },
   cardSelected: {
-    backgroundColor: "#EAF3FF",
+    backgroundColor: "#EEF4FF",
   },
   cardBody: {
     flex: 1,
-    gap: 4,
+    gap: 5,
   },
   name: {
-    color: "#101827",
-    fontSize: 15,
+    color: "#1E66DD",
+    fontSize: 24,
     fontWeight: "700",
+    lineHeight: 28,
   },
   meta: {
-    color: "#5F6980",
+    color: "#7B879A",
     fontSize: 12,
     fontWeight: "600",
   },
   description: {
-    color: "#25314D",
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  countText: {
-    color: "#6A7388",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  placeText: {
-    color: "#41506E",
-    fontSize: 12,
-  },
-  meetText: {
-    color: "#41506E",
-    fontSize: 12,
+    color: "#1D2430",
+    fontSize: 14,
+    lineHeight: 19,
   },
   actionButton: {
-    minWidth: 64,
-    height: 34,
-    paddingHorizontal: 14,
+    minWidth: 56,
+    height: 30,
+    paddingHorizontal: 12,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#1C73F0",
+    borderWidth: 0,
+    backgroundColor: "#1C73F0",
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 4,
   },
   actionButtonActive: {
-    backgroundColor: "#EAF2FF",
+    backgroundColor: "#628FD8",
   },
   actionButtonText: {
-    color: "#1C73F0",
+    color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 12,
   },
   actionButtonTextActive: {
-    color: "#0E55BD",
+    color: "#FFFFFF",
   },
   infoText: {
-    color: "#6F778B",
-    fontSize: 13,
+    color: "#7E889A",
+    fontSize: 12,
     textAlign: "center",
-    marginTop: 10,
+    marginTop: 2,
     paddingHorizontal: 16,
   },
   errorText: {
@@ -1042,17 +1067,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   createMingleButton: {
-    height: 32,
-    borderRadius: 999,
-    backgroundColor: "#1C73F0",
-    paddingHorizontal: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#ECF1F8",
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
-    gap: 5,
+    borderWidth: 1,
+    borderColor: "#DCE5F1",
   },
   createMingleButtonText: {
-    color: "#FFFFFF",
+    color: "#7B8AA6",
     fontSize: 12,
     fontWeight: "700",
   },
