@@ -6,6 +6,8 @@ import { decodeUserIdFromToken } from "../../auth/userId";
 import { fetchChatMessages, fetchChatRoom, fetchUsers, markChatRoomAsRead } from "../../services";
 import { createChatSocketClient, sendChatRoomMessage, subscribeChatRoom } from "../../services/chatSocketService";
 
+const PENDING_TIMEOUT_MS = 20000;
+
 function formatClock(value) {
   if (!value) {
     return "";
@@ -36,15 +38,36 @@ export function ChatRoom({ navigation, route }) {
   const clientRef = useRef(null);
   const subscriptionRef = useRef(null);
   const messageListRef = useRef(null);
+  const pendingTimeoutsRef = useRef(new Map());
 
   const [chatRoom, setChatRoom] = useState(null);
   const [usersById, setUsersById] = useState({});
   const [messages, setMessages] = useState([]);
+  const [pendingMessages, setPendingMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [socketReady, setSocketReady] = useState(false);
   const [error, setError] = useState(null);
   const [socketError, setSocketError] = useState(null);
+
+  const renderedMessages = useMemo(() => {
+    return [...messages, ...pendingMessages].sort((a, b) => {
+      return String(a.createdDateTime || "").localeCompare(String(b.createdDateTime || ""));
+    });
+  }, [messages, pendingMessages]);
+
+  function clearPendingTimeout(localId) {
+    const timeoutId = pendingTimeoutsRef.current.get(localId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      pendingTimeoutsRef.current.delete(localId);
+    }
+  }
+
+  function clearAllPendingTimeouts() {
+    pendingTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    pendingTimeoutsRef.current.clear();
+  }
 
   const markAsReadSilently = useCallback(async () => {
     if (!Number.isFinite(chatRoomId) || chatRoomId <= 0) {
@@ -108,10 +131,14 @@ export function ChatRoom({ navigation, route }) {
       setUsersById(userMap);
       setChatRoom(chatRoomResponse?.chatRoom || null);
       setMessages(uniqueMessages(chatMessagesResponse?.messages ?? []));
+      setPendingMessages([]);
+      clearAllPendingTimeouts();
     } catch (requestError) {
       setChatRoom(null);
       setMessages([]);
+      setPendingMessages([]);
       setUsersById({});
+      clearAllPendingTimeouts();
       setError(requestError?.message || "채팅 정보를 불러오지 못했습니다.");
     } finally {
       setLoading(false);
@@ -153,6 +180,7 @@ export function ChatRoom({ navigation, route }) {
       subscriptionRef.current = null;
       client.deactivate();
       clientRef.current = null;
+      clearAllPendingTimeouts();
       setSocketReady(false);
       setSocketError(null);
     };
@@ -166,6 +194,22 @@ export function ChatRoom({ navigation, route }) {
     subscriptionRef.current?.unsubscribe();
     subscriptionRef.current = subscribeChatRoom(clientRef.current, chatRoomId, userId, (message) => {
       setMessages((prev) => uniqueMessages([...prev, message]));
+      if (Number(message?.senderUserId) === Number(userId)) {
+        setPendingMessages((previous) => {
+          const next = [...previous];
+          const matchedIndex = next.findIndex(
+            (pending) =>
+              pending.status !== "failed" &&
+              String(pending.content || "").trim() === String(message?.content || "").trim(),
+          );
+          if (matchedIndex >= 0) {
+            const matched = next[matchedIndex];
+            clearPendingTimeout(matched.localId);
+            next.splice(matchedIndex, 1);
+          }
+          return next;
+        });
+      }
       if (message?.senderUserId && Number(message.senderUserId) !== Number(userId)) {
         markAsReadSilently();
       }
@@ -178,15 +222,48 @@ export function ChatRoom({ navigation, route }) {
   }, [chatRoomId, socketReady, markAsReadSilently, userId]);
 
   useEffect(() => {
-    if (messages.length === 0) {
+    if (renderedMessages.length === 0) {
       return;
     }
 
     scrollToBottom();
-  }, [messages, scrollToBottom]);
+  }, [renderedMessages, scrollToBottom]);
 
-  function handleSend() {
-    const content = input.trim();
+  useEffect(() => {
+    return () => {
+      clearAllPendingTimeouts();
+    };
+  }, []);
+
+  function queuePendingMessage(content) {
+    const localId = `pending-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    const pendingMessage = {
+      id: localId,
+      localId,
+      content,
+      translatedContent: null,
+      senderUserId: userId,
+      createdDateTime: new Date().toISOString(),
+      pending: true,
+      status: "pending",
+    };
+
+    setPendingMessages((previous) => [...previous, pendingMessage]);
+    const timeoutId = setTimeout(() => {
+      setPendingMessages((previous) =>
+        previous.map((item) =>
+          item.localId === localId && item.status === "pending"
+            ? { ...item, status: "failed" }
+            : item,
+        ),
+      );
+      pendingTimeoutsRef.current.delete(localId);
+    }, PENDING_TIMEOUT_MS);
+    pendingTimeoutsRef.current.set(localId, timeoutId);
+  }
+
+  function sendMessageContent(rawContent) {
+    const content = String(rawContent || "").trim();
     if (!content || !chatRoomId) {
       return;
     }
@@ -198,9 +275,44 @@ export function ChatRoom({ navigation, route }) {
 
     setSocketError(null);
     setError(null);
-    setInput("");
-    sendChatRoomMessage(clientRef.current, chatRoomId, content);
+    queuePendingMessage(content);
+
+    try {
+      sendChatRoomMessage(clientRef.current, chatRoomId, content);
+    } catch {
+      setPendingMessages((previous) =>
+        previous.map((item) =>
+          item.content === content && item.status === "pending"
+            ? { ...item, status: "failed" }
+            : item,
+        ),
+      );
+      setSocketError("메시지 전송에 실패했습니다.");
+    }
   }
+
+  function handleSend() {
+    const content = input.trim();
+    if (!content) {
+      return;
+    }
+
+    setInput("");
+    sendMessageContent(content);
+  }
+
+  function handleRetryPending(localId) {
+    const target = pendingMessages.find((item) => item.localId === localId);
+    if (!target) {
+      return;
+    }
+
+    clearPendingTimeout(localId);
+    setPendingMessages((previous) => previous.filter((item) => item.localId !== localId));
+    sendMessageContent(target.content);
+  }
+
+  const hasPendingTranslation = pendingMessages.some((item) => item.status === "pending");
 
   return (
     <KeyboardAvoidingView
@@ -224,13 +336,15 @@ export function ChatRoom({ navigation, route }) {
 
       <FlatList
         ref={messageListRef}
-        data={messages}
+        data={renderedMessages}
         keyExtractor={(item) => String(item.id)}
         style={styles.messageList}
         contentContainerStyle={styles.messageContent}
         onContentSizeChange={() => scrollToBottom(false)}
         renderItem={({ item }) => {
           const mine = item.senderUserId === userId;
+          const isPending = Boolean(item.pending);
+          const isFailed = item.status === "failed";
           return (
             <View style={[styles.messageRow, mine && styles.messageRowMine]}>
               <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
@@ -241,6 +355,18 @@ export function ChatRoom({ navigation, route }) {
                   <Text style={[styles.messageOriginalText, mine && styles.messageOriginalTextMine]}>
                     {item.content}
                   </Text>
+                ) : null}
+                {mine && isPending ? (
+                  <View style={styles.pendingRow}>
+                    <Text style={[styles.pendingText, isFailed && styles.pendingTextFailed]}>
+                      {isFailed ? "전송 실패" : "번역 및 전송 중..."}
+                    </Text>
+                    {isFailed ? (
+                      <Pressable onPress={() => handleRetryPending(item.localId)}>
+                        <Text style={styles.pendingRetryText}>재시도</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
                 ) : null}
                 <Text style={[styles.messageTime, mine && styles.messageTimeMine]}>{formatClock(item.createdDateTime)}</Text>
               </View>
@@ -265,6 +391,9 @@ export function ChatRoom({ navigation, route }) {
           <Ionicons name="send" size={18} color="#FFFFFF" />
         </Pressable>
       </View>
+      {hasPendingTranslation ? (
+        <Text style={styles.sendingHintText}>메시지를 번역 중입니다. 잠시만 기다려주세요.</Text>
+      ) : null}
     </KeyboardAvoidingView>
   );
 }
@@ -358,6 +487,25 @@ const styles = StyleSheet.create({
   messageOriginalTextMine: {
     color: "#DBEAFE",
   },
+  pendingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  pendingText: {
+    color: "#DBEAFE",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  pendingTextFailed: {
+    color: "#FCA5A5",
+  },
+  pendingRetryText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
   messageTime: {
     color: "#64748B",
     fontSize: 11,
@@ -392,6 +540,13 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.45,
+  },
+  sendingHintText: {
+    marginTop: 6,
+    color: "#64748B",
+    fontSize: 12,
+    textAlign: "center",
+    fontWeight: "600",
   },
   metaText: {
     color: "#6B7280",
