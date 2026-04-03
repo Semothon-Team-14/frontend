@@ -238,12 +238,10 @@ export function CreateTrip({ navigation, route }) {
     setCityPickerTarget(null);
   }
 
-  async function handlePickTicket(source) {
+  async function handlePickTicketFromGallery() {
     let permissionResult;
     try {
-      permissionResult = source === "camera"
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     } catch {
       const message = tx("권한 확인 중 오류가 발생했습니다.", "Failed to check permissions.");
       setError(message);
@@ -260,23 +258,14 @@ export function CreateTrip({ navigation, route }) {
 
     let pickerResult;
     try {
-      pickerResult = source === "camera"
-        ? await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: false,
-            quality: 0.9,
-            base64: true,
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: false,
-            quality: 0.9,
-            base64: true,
-          });
+      pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.9,
+        base64: true,
+      });
     } catch {
-      const message = source === "camera"
-        ? tx("카메라를 실행할 수 없습니다. 에뮬레이터에서는 갤러리 선택을 사용해주세요.", "Camera is not available. On emulators, use gallery selection.")
-        : tx("갤러리를 열 수 없습니다.", "Unable to open gallery.");
+      const message = tx("갤러리를 열 수 없습니다.", "Unable to open gallery.");
       setError(message);
       Alert.alert(tx("티켓 스캔", "Ticket Scan"), message);
       return;
@@ -433,19 +422,11 @@ export function CreateTrip({ navigation, route }) {
       <View style={styles.scanRow}>
         <Pressable
           style={[styles.scanButton, scanningTicket && styles.scanButtonDisabled]}
-          onPress={() => handlePickTicket("gallery")}
+          onPress={handlePickTicketFromGallery}
           disabled={scanningTicket || submitting || loadingInitialData}
         >
           <Ionicons name="images-outline" size={18} color="#1D6FF2" />
           <Text style={styles.scanButtonText}>{tx("갤러리에서 티켓 불러오기", "Scan Ticket from Gallery")}</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.scanButton, scanningTicket && styles.scanButtonDisabled]}
-          onPress={() => handlePickTicket("camera")}
-          disabled={scanningTicket || submitting || loadingInitialData}
-        >
-          <Ionicons name="camera-outline" size={18} color="#1D6FF2" />
-          <Text style={styles.scanButtonText}>{tx("카메라로 티켓 촬영", "Scan Ticket with Camera")}</Text>
         </Pressable>
       </View>
 
