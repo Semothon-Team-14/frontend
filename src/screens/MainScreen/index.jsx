@@ -752,10 +752,7 @@ export function MainScreen() {
           >
             <View style={styles.quickCardHeader}>
               <Text style={styles.nearbyTitle}>
-                {tx(
-                  `${localDisplayName} 밍글러`,
-                  `${localDisplayName} Mingler`,
-                )}
+                {localDisplayName}
               </Text>
               <Direction width={18} height={18} />
             </View>
