@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -132,22 +131,9 @@ export function ChatRoom({ navigation, route }) {
     return tx(`채팅방 #${chatRoom.id}`, `Chat #${chatRoom.id}`);
   }, [chatRoom, tx, userId, usersById]);
 
-  const headerAvatar = useMemo(() => {
-    const participantIds = (chatRoom?.participantUserIds ?? []).filter(
-      (id) => Number(id) !== Number(userId),
-    );
-    if (participantIds.length > 1) {
-      return { type: "group" };
-    }
-
-    const otherUser =
-      participantIds.length === 1 ? usersById[participantIds[0]] : null;
-    if (otherUser?.profileImageUrl) {
-      return { type: "image", imageUrl: otherUser.profileImageUrl };
-    }
-
-    return { type: "fallback" };
-  }, [chatRoom?.participantUserIds, userId, usersById]);
+  const roomNoticeText = useMemo(() => {
+    return tx("반가워요! ", "Welcome! ");
+  }, [tx]);
 
   const scrollToBottom = useCallback((animated = true) => {
     requestAnimationFrame(() => {
@@ -390,30 +376,15 @@ export function ChatRoom({ navigation, route }) {
         >
           <Ionicons name="chevron-back" size={22} color="#111827" />
         </Pressable>
-        <View style={styles.headerAvatarCircle}>
-          {headerAvatar.type === "image" ? (
-            <Image
-              source={{ uri: headerAvatar.imageUrl }}
-              style={styles.headerAvatarImage}
-            />
-          ) : headerAvatar.type === "group" ? (
-            <Ionicons name="people" size={17} color="#1D4ED8" />
-          ) : (
-            <Ionicons name="person" size={17} color="#1D4ED8" />
-          )}
-        </View>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {roomTitle}
         </Text>
-        <Text
-          style={[
-            styles.socketState,
-            socketReady ? styles.socketReady : styles.socketPending,
-          ]}
-        >
-          {socketReady ? "LIVE" : "OFFLINE"}
-        </Text>
       </View>
+      <Text style={styles.noticeText}>
+        {roomNoticeText}
+        <Text style={styles.noticeTextHighlight}>{roomTitle}</Text>
+        {tx(" 님이 밍글을 수락했어요!", " accepted your mingle request!")}
+      </Text>
 
       {loading ? <Text style={styles.metaText}>{tx("메시지를 불러오는 중...", "Loading messages...")}</Text> : null}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -434,9 +405,6 @@ export function ChatRoom({ navigation, route }) {
             Boolean(item.translatedContent) &&
             item.translatedContent !== item.content;
 
-          const primaryText = hasTranslatedPair
-            ? item.translatedContent
-            : item.content;
           return (
             <View style={[styles.messageRow, mine && styles.messageRowMine]}>
               <View
@@ -445,66 +413,21 @@ export function ChatRoom({ navigation, route }) {
                   mine ? styles.bubbleMine : styles.bubbleOther,
                 ]}
               >
-                <View
-                  style={[
-                    styles.messageBlock,
-                    mine
-                      ? styles.messageBlockTranslatedMine
-                      : styles.messageBlockTranslatedOther,
-                  ]}
-                >
-                  {hasTranslatedPair ? (
-                    <Text
-                      style={[
-                        styles.messageLabel,
-                        mine
-                          ? styles.messageLabelTranslatedMine
-                          : styles.messageLabelTranslatedOther,
-                      ]}
-                    >
-                      {tx("번역", "Translated")}
-                    </Text>
-                  ) : null}
+                {!mine && hasTranslatedPair ? (
+                  <>
+                    <Text style={styles.messageTextOtherOriginal}>{item.content}</Text>
+                    <Text style={styles.messageTextOtherTranslated}>{item.translatedContent}</Text>
+                  </>
+                ) : (
                   <Text
                     style={[
                       styles.messageText,
-                      mine
-                        ? styles.messageTextTranslatedMine
-                        : styles.messageTextTranslatedOther,
+                      mine ? styles.messageTextMine : styles.messageTextOther,
                     ]}
                   >
-                    {primaryText}
+                    {mine ? item.content : (item.translatedContent || item.content)}
                   </Text>
-                </View>
-                {hasTranslatedPair ? (
-                  <View
-                    style={[
-                      styles.messageBlock,
-                      mine
-                        ? styles.messageBlockOriginalMine
-                        : styles.messageBlockOriginalOther,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.messageLabel,
-                        mine
-                          ? styles.messageLabelOriginalMine
-                          : styles.messageLabelOriginalOther,
-                      ]}
-                    >
-                      {tx("원문", "Original")}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.messageOriginalText,
-                        mine && styles.messageOriginalTextMine,
-                      ]}
-                    >
-                      {item.content}
-                    </Text>
-                  </View>
-                ) : null}
+                )}
                 {mine && isPending ? (
                   <View style={styles.pendingRow}>
                     <Text
@@ -541,6 +464,9 @@ export function ChatRoom({ navigation, route }) {
       />
 
       <View style={styles.inputRow}>
+        <Pressable style={styles.plusButton}>
+          <Ionicons name="add" size={20} color="#8F9AAF" />
+        </Pressable>
         <TextInput
           style={styles.input}
           value={input}
@@ -560,7 +486,7 @@ export function ChatRoom({ navigation, route }) {
           onPress={handleSend}
           disabled={!input.trim()}
         >
-          <Ionicons name="send" size={18} color="#FFFFFF" />
+          <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
         </Pressable>
       </View>
       {hasPendingTranslation ? (
@@ -575,68 +501,47 @@ export function ChatRoom({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F2F4F8",
     paddingTop: 52,
-    paddingHorizontal: 14,
-    paddingBottom: 10,
+    paddingHorizontal: 10,
+    paddingBottom: 8,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
-    gap: 8,
+    marginBottom: 8,
+    gap: 4,
   },
   backButton: {
-    width: 34,
-    height: 34,
+    width: 32,
+    height: 32,
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F3F4F6",
-  },
-  headerAvatarCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#EAF2FF",
-    borderWidth: 1,
-    borderColor: "#CFE0FF",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  headerAvatarImage: {
-    width: "100%",
-    height: "100%",
+    backgroundColor: "transparent",
   },
   headerTitle: {
     flex: 1,
-    fontSize: 19,
+    fontSize: 31,
     fontWeight: "700",
     color: "#111827",
   },
-  socketState: {
+  noticeText: {
+    textAlign: "center",
+    color: "#CFD5DF",
     fontSize: 11,
     fontWeight: "700",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    overflow: "hidden",
+    marginBottom: 10,
   },
-  socketReady: {
-    color: "#FFFFFF",
-    backgroundColor: "#1C73F0",
-  },
-  socketPending: {
-    color: "#FFFFFF",
-    backgroundColor: "#9CA3AF",
+  noticeTextHighlight: {
+    color: "#6AA8FF",
   },
   messageList: {
     flex: 1,
   },
   messageContent: {
     paddingTop: 6,
-    paddingBottom: 8,
+    paddingBottom: 10,
     gap: 8,
   },
   messageRow: {
@@ -646,75 +551,41 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   bubble: {
-    maxWidth: "84%",
-    borderRadius: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
-    gap: 6,
+    maxWidth: "82%",
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 4,
   },
   bubbleOther: {
-    backgroundColor: "#F1F5F9",
-    borderBottomLeftRadius: 4,
+    backgroundColor: "#D9E0EB",
+    borderBottomLeftRadius: 8,
   },
   bubbleMine: {
-    backgroundColor: "#1D4ED8",
-    borderBottomRightRadius: 4,
+    backgroundColor: "#0F6BFF",
+    borderBottomRightRadius: 8,
   },
   messageText: {
     fontSize: 14,
     lineHeight: 19,
   },
-  messageTextTranslatedOther: {
-    color: "#0F172A",
+  messageTextOther: {
+    color: "#111827",
   },
-  messageTextTranslatedMine: {
-    color: "#EFF6FF",
+  messageTextMine: {
+    color: "#FFFFFF",
   },
-  messageBlock: {
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 7,
-    gap: 2,
+  messageTextOtherOriginal: {
+    color: "#111827",
+    fontSize: 17,
+    lineHeight: 20,
+    fontWeight: "600",
   },
-  messageBlockTranslatedOther: {
-    backgroundColor: "#EEF4FF",
-  },
-  messageBlockTranslatedMine: {
-    backgroundColor: "rgba(255,255,255,0.18)",
-  },
-  messageBlockOriginalOther: {
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  messageBlockOriginalMine: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  messageLabel: {
-    fontSize: 10,
+  messageTextOtherTranslated: {
+    color: "#1D70FF",
+    fontSize: 17,
+    lineHeight: 20,
     fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  messageLabelTranslatedOther: {
-    color: "#2458C8",
-  },
-  messageLabelTranslatedMine: {
-    color: "#DBEAFE",
-  },
-  messageLabelOriginalOther: {
-    color: "#64748B",
-  },
-  messageLabelOriginalMine: {
-    color: "#BFDBFE",
-  },
-  messageOriginalText: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: "#475569",
-  },
-  messageOriginalTextMine: {
-    color: "#CFE2FF",
   },
   pendingRow: {
     flexDirection: "row",
@@ -736,37 +607,49 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
   messageTime: {
-    color: "#64748B",
-    fontSize: 11,
+    color: "#8B96A8",
+    fontSize: 10,
     alignSelf: "flex-end",
   },
   messageTimeMine: {
-    color: "#DBEAFE",
+    color: "#D6E7FF",
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginTop: 6,
-    marginBottom: 30,
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 22,
+    backgroundColor: "#C8CFDB",
+    borderRadius: 18,
+    paddingHorizontal: 6,
+    height: 40,
+  },
+  plusButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#DCE2EC",
   },
   input: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    paddingHorizontal: 14,
-    backgroundColor: "#FFFFFF",
+    minHeight: 36,
+    borderRadius: 18,
+    borderWidth: 0,
+    paddingHorizontal: 6,
+    backgroundColor: "transparent",
     fontSize: 14,
+    color: "#5E687B",
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1D4ED8",
+    backgroundColor: "#0F6BFF",
   },
   sendButtonDisabled: {
     opacity: 0.45,
