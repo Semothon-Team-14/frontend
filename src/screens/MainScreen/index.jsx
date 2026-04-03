@@ -844,9 +844,6 @@ export function MainScreen() {
                   style={styles.placeImage}
                   imageStyle={styles.placeImageRadius}
                 >
-                  <View style={styles.rankBadge}>
-                    <Text style={styles.rankText}>{idx + 1}</Text>
-                  </View>
                   <Pressable
                     style={styles.bookmarkBtn}
                     hitSlop={12}
@@ -1322,22 +1319,6 @@ const styles = StyleSheet.create({
   },
   placeImageRadius: {
     borderRadius: 16,
-  },
-  rankBadge: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "#1C73F0",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  rankText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
   },
   bookmarkBtn: {
     position: "absolute",
