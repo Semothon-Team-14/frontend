@@ -4,7 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocale } from "../../locale";
-import { fetchChatRooms } from "../../services/chatService";
 import { fetchLocals } from "../../services/localService";
 import { fetchMingleMinglers, fetchMinglePlacePhotos, fetchMingles, uploadMinglePlacePhoto } from "../../services/mingleService";
 import { fetchAllCities } from "../../services/placeService";
@@ -111,12 +110,11 @@ export function TripRecordDetail({ navigation, route }) {
 
     setLoading(true);
     try {
-      const [tripResponse, allCities, usersResponse, localsResponse, chatRoomsResponse, minglesResponse] = await Promise.all([
+      const [tripResponse, allCities, usersResponse, localsResponse, minglesResponse] = await Promise.all([
         fetchTrip(tripId),
         fetchAllCities(),
         fetchUsers(),
         fetchLocals(),
-        fetchChatRooms(),
         fetchMingles(),
       ]);
 
@@ -129,22 +127,6 @@ export function TripRecordDetail({ navigation, route }) {
       const usersById = Object.fromEntries((usersResponse?.users ?? []).map((entry) => [Number(entry?.id), entry]));
       const tripStartAt = parseDate(`${loadedTrip?.startDate}T00:00:00`);
       const tripEndAt = parseDate(`${loadedTrip?.endDate}T23:59:59`);
-
-      const chatRooms = chatRoomsResponse?.chatRooms ?? [];
-      const directRooms = chatRooms.filter((room) => Boolean(room?.directChat));
-      const overlappingDirectRooms = directRooms.filter((room) =>
-        overlapsTripPeriod(room?.createdDateTime, room?.updatedDateTime, tripStartAt, tripEndAt),
-      );
-      const selectedDirectRooms = overlappingDirectRooms.length > 0 ? overlappingDirectRooms : directRooms;
-      const directCompanions = new Set();
-      selectedDirectRooms.forEach((room) => {
-        const companionId = (room?.participantUserIds ?? []).find(
-          (participantId) => Number(participantId) !== Number(userId),
-        );
-        if (Number(companionId) > 0) {
-          directCompanions.add(Number(companionId));
-        }
-      });
 
       const cityMingles = (minglesResponse?.mingles ?? []).filter((entry) => {
         return Number(entry?.city?.id) === Number(loadedTrip?.cityId);
@@ -196,7 +178,7 @@ export function TripRecordDetail({ navigation, route }) {
         }
       });
 
-      const allCompanionIds = Array.from(new Set([...directCompanions, ...mingleCompanionIds]));
+      const allCompanionIds = Array.from(mingleCompanionIds);
       const locals = localsResponse?.locals ?? [];
       const localUserIdsInTripCity = new Set(
         locals
