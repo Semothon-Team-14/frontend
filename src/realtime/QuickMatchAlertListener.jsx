@@ -411,6 +411,34 @@ export function QuickMatchAlertListener() {
   }, [loadSubscribedCityIds]);
 
   useEffect(() => {
+    if (!socketReady || !userId) {
+      return;
+    }
+
+    const hasSubscribedCities =
+      Array.isArray(subscribedCityIds) && subscribedCityIds.length > 0;
+    if (hasSubscribedCities) {
+      return;
+    }
+
+    // Right after signup/login, trip/local rows can be visible with a slight delay.
+    // Warm up quickly so city subscriptions attach as soon as those rows appear.
+    let attempts = 0;
+    const maxAttempts = 12; // about 18s with 1.5s interval
+    const warmupIntervalId = setInterval(() => {
+      attempts += 1;
+      loadSubscribedCityIds();
+      if (attempts >= maxAttempts) {
+        clearInterval(warmupIntervalId);
+      }
+    }, 1500);
+
+    return () => {
+      clearInterval(warmupIntervalId);
+    };
+  }, [loadSubscribedCityIds, socketReady, subscribedCityIds, userId]);
+
+  useEffect(() => {
     if (!socketReady || !clientRef.current || !userId) {
       return;
     }
