@@ -529,43 +529,38 @@ export function Nearby({ route }) {
       </MapView>
 
       <View pointerEvents="box-none" style={styles.overlayLayer}>
-        <View style={styles.topOverlay}>
-          <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>{tx("로컬 밍글러", "Local Minglers")}</Text>
+        <View style={styles.listSheet}>
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetTopRow}>
+            <View style={styles.groupFilterHeader}>
+              <View style={styles.groupFilterRow}>
+                {[
+                  GROUP_SIZE_FILTER_ALL,
+                  GROUP_SIZE_FILTER_2,
+                  GROUP_SIZE_FILTER_3,
+                  GROUP_SIZE_FILTER_4,
+                  GROUP_SIZE_FILTER_5PLUS,
+                ].map((filter) => {
+                  const active = groupSizeFilter === filter;
+                  return (
+                    <Pressable
+                      key={filter}
+                      style={[styles.groupFilterChip, active && styles.groupFilterChipActive]}
+                      onPress={() => setGroupSizeFilter(filter)}
+                    >
+                      <Text style={[styles.groupFilterText, active && styles.groupFilterTextActive]}>
+                        {filter === GROUP_SIZE_FILTER_ALL ? tx("전체", "All") : `${filter}${tx("명", "")}`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
             <Pressable style={styles.createMingleButton} onPress={() => setCreateModalVisible(true)}>
               <Ionicons name="add" size={16} color="#FFFFFF" />
               <Text style={styles.createMingleButtonText}>{tx("밍글 만들기", "Create")}</Text>
             </Pressable>
           </View>
-
-          <View style={styles.groupFilterHeader}>
-            <View style={styles.groupFilterRow}>
-              {[
-                GROUP_SIZE_FILTER_ALL,
-                GROUP_SIZE_FILTER_2,
-                GROUP_SIZE_FILTER_3,
-                GROUP_SIZE_FILTER_4,
-                GROUP_SIZE_FILTER_5PLUS,
-              ].map((filter) => {
-                const active = groupSizeFilter === filter;
-                return (
-                  <Pressable
-                    key={filter}
-                    style={[styles.groupFilterChip, active && styles.groupFilterChipActive]}
-                    onPress={() => setGroupSizeFilter(filter)}
-                  >
-                    <Text style={[styles.groupFilterText, active && styles.groupFilterTextActive]}>
-                      {filter === GROUP_SIZE_FILTER_ALL ? tx("전체", "All") : `${filter}${tx("명", "")}`}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.listSheet}>
-          <View style={styles.sheetHandle} />
           {loading ? <Text style={styles.infoText}>{tx("불러오는 중...", "Loading...")}</Text> : null}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {!loading && !error && mingleMarkers.length === 0 ? (
@@ -808,27 +803,11 @@ const styles = StyleSheet.create({
   },
   overlayLayer: {
     flex: 1,
-    justifyContent: "space-between",
-  },
-  topOverlay: {
-    paddingTop: 54,
-  },
-  headerRow: {
-    marginHorizontal: 20,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  headerTitle: {
-    color: "#111827",
-    fontSize: 20,
-    fontWeight: "800",
+    justifyContent: "flex-end",
   },
   groupFilterHeader: {
-    marginHorizontal: 20,
-    marginBottom: 10,
+    flex: 1,
+    marginRight: 8,
   },
   groupFilterRow: {
     flexDirection: "row",
@@ -864,6 +843,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingTop: 8,
+  },
+  sheetTopRow: {
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
   },
   sheetHandle: {
     alignSelf: "center",
