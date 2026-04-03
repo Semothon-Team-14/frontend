@@ -645,10 +645,10 @@ export function Nearby({ route }) {
             style={styles.sheetHandleButton}
             onPress={() => setSheetExpanded((prev) => !prev)}
           >
-            <View style={styles.sheetHandle} />
+            {/* <View style={styles.sheetHandle} /> */}
             <Ionicons
               name={sheetExpanded ? "chevron-down" : "chevron-up"}
-              size={14}
+              size={25}
               color="#7B8AA6"
               style={styles.sheetHandleIcon}
             />
@@ -1239,7 +1239,7 @@ const styles = StyleSheet.create({
   },
   name: {
     color: "#1E66DD",
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: "700",
     lineHeight: 28,
   },
