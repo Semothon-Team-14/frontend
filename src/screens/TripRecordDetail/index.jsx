@@ -6,8 +6,7 @@ import { useLocale } from "../../locale";
 import { fetchChatRooms } from "../../services/chatService";
 import { fetchLocals } from "../../services/localService";
 import { fetchMingleMinglers, fetchMingles } from "../../services/mingleService";
-import { fetchAllCities, fetchCafeImages, fetchRestaurantImages } from "../../services/placeService";
-import { fetchSavedCafes, fetchSavedRestaurants } from "../../services/savedPlaceService";
+import { fetchAllCities } from "../../services/placeService";
 import { fetchTrip } from "../../services/tripService";
 import { fetchUsers } from "../../services/userService";
 import { decodeUserIdFromToken, useAuth } from "../../auth";
@@ -77,19 +76,6 @@ function toVisitDateText(dateTimeValue) {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
-async function enrichVisitImageUrl(visit) {
-  try {
-    if (visit.type === "restaurant") {
-      const imageResponse = await fetchRestaurantImages(visit.placeId);
-      return imageResponse?.images?.[0]?.imageUrl || null;
-    }
-    const imageResponse = await fetchCafeImages(visit.placeId);
-    return imageResponse?.images?.[0]?.imageUrl || null;
-  } catch {
-    return null;
-  }
-}
-
 export function TripRecordDetail({ navigation, route }) {
   const { token } = useAuth();
   const { tx, isKorean } = useLocale();
@@ -114,15 +100,13 @@ export function TripRecordDetail({ navigation, route }) {
 
     setLoading(true);
     try {
-      const [tripResponse, allCities, usersResponse, localsResponse, chatRoomsResponse, minglesResponse, savedRestaurantsResponse, savedCafesResponse] = await Promise.all([
+      const [tripResponse, allCities, usersResponse, localsResponse, chatRoomsResponse, minglesResponse] = await Promise.all([
         fetchTrip(tripId),
         fetchAllCities(),
         fetchUsers(),
         fetchLocals(),
         fetchChatRooms(),
         fetchMingles(),
-        fetchSavedRestaurants(),
-        fetchSavedCafes(),
       ]);
 
       const loadedTrip = tripResponse?.trip ?? null;
@@ -198,39 +182,28 @@ export function TripRecordDetail({ navigation, route }) {
       setLocalMinglers(mappedCompanions.filter((entry) => entry.local));
       setTravelerMinglers(mappedCompanions.filter((entry) => !entry.local));
 
-      const tripCityId = Number(loadedTrip?.cityId || 0);
-      const restaurantVisits = (savedRestaurantsResponse?.savedRestaurants ?? [])
-        .filter((entry) => Number(entry?.restaurant?.cityId) === tripCityId)
-        .filter((entry) => overlapsTripWindow(entry?.createdDateTime, tripStartAt, tripEndAt))
-        .map((entry) => ({
-          type: "restaurant",
-          id: `r-${entry?.id}`,
-          placeId: Number(entry?.restaurant?.id || 0),
-          placeName: entry?.restaurant?.name || "-",
-          placeAddress: entry?.restaurant?.address || "",
-          visitedAt: entry?.createdDateTime,
-        }));
-      const cafeVisits = (savedCafesResponse?.savedCafes ?? [])
-        .filter((entry) => Number(entry?.cafe?.cityId) === tripCityId)
-        .filter((entry) => overlapsTripWindow(entry?.createdDateTime, tripStartAt, tripEndAt))
-        .map((entry) => ({
-          type: "cafe",
-          id: `c-${entry?.id}`,
-          placeId: Number(entry?.cafe?.id || 0),
-          placeName: entry?.cafe?.name || "-",
-          placeAddress: entry?.cafe?.address || "",
-          visitedAt: entry?.createdDateTime,
-        }));
-
-      const mergedVisits = [...restaurantVisits, ...cafeVisits]
+      const mingleVisits = cityMingles
+        .filter((mingle) => String(mingle?.placeName || "").trim().length > 0)
+        .map((mingle) => ({
+          id: `m-${mingle?.id}`,
+          placeName: String(mingle?.placeName || "-"),
+          placeAddress: "",
+          visitedAt: mingle?.meetDateTime || mingle?.updatedDateTime || mingle?.createdDateTime || null,
+          imageUrl: null,
+        }))
         .sort((a, b) => String(a?.visitedAt || "").localeCompare(String(b?.visitedAt || "")));
-      const enrichedVisits = await Promise.all(
-        mergedVisits.slice(0, 10).map(async (visit) => ({
-          ...visit,
-          imageUrl: await enrichVisitImageUrl(visit),
-        })),
-      );
-      setVisitedPlaces(enrichedVisits);
+
+      const uniqueByPlaceName = [];
+      const seenNames = new Set();
+      mingleVisits.forEach((visit) => {
+        const key = String(visit?.placeName || "").trim().toLowerCase();
+        if (!key || seenNames.has(key)) {
+          return;
+        }
+        seenNames.add(key);
+        uniqueByPlaceName.push(visit);
+      });
+      setVisitedPlaces(uniqueByPlaceName.slice(0, 10));
     } catch {
       setTrip(null);
       setCity(null);
