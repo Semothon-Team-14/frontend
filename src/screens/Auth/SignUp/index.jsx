@@ -578,7 +578,7 @@ export function SignUpScreen({ navigation }) {
               ) : (
                 <Ionicons
                   name="person-circle"
-                  size={62}
+                  size={64}
                   color="#94A3B8"
                   style={styles.profileImagePlaceholder}
                 />
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   profileImageRow: {
-    flexDirection: "row",
+    // flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginBottom: 4,
@@ -840,7 +840,8 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   profileImagePlaceholder: {
-    lineHeight: 62,
+    width: 64,
+    height: 64,
   },
   profileImageButton: {
     height: 38,
@@ -859,31 +860,33 @@ const styles = StyleSheet.create({
   },
   profileImageButtonGroup: {
     gap: 8,
+    flexDirection: "row",
   },
   sexRow: {
     flexDirection: "row",
     gap: 8,
   },
   sexButton: {
-    flex: 1,
-    height: 40,
-    borderRadius: 10,
+    // flex: 1,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "white",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: "#D5DBE7",
-    alignItems: "center",
-    justifyContent: "center",
   },
   sexButtonActive: {
     borderColor: "#1C73F0",
-    backgroundColor: "#EAF2FF",
+    backgroundColor: "#1C73F0",
   },
   sexText: {
-    color: "#4F5D7D",
     fontWeight: "700",
     fontSize: 14,
   },
   sexTextActive: {
-    color: "#145FCA",
+    color: "white",
   },
   skipButton: {
     marginTop: 8,
