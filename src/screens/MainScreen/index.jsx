@@ -328,7 +328,6 @@ export function MainScreen() {
       setCurrentTrip(trip);
       setTripCity(nextTripCity);
       setLocalCity(nextLocalCity);
-      setHomeMode(nextLocalCity ? HOME_MODE_LOCAL : HOME_MODE_TRAVELER);
       setPlacesByType({ restaurant: [], cafe: [] });
       setPlaces([]);
       setPlaceError(null);
@@ -343,7 +342,6 @@ export function MainScreen() {
       setCurrentTrip(null);
       setTripCity(null);
       setLocalCity(null);
-      setHomeMode(HOME_MODE_TRAVELER);
       setPlaces([]);
       setPlacesByType({ restaurant: [], cafe: [] });
       setPlaceLoading(false);
@@ -528,42 +526,40 @@ export function MainScreen() {
           </Pressable>
         </View>
 
-        {homeMode !== HOME_MODE_LOCAL ? (
-          <View style={styles.modeToggleRow}>
-            <Pressable
+        <View style={styles.modeToggleRow}>
+          <Pressable
+            style={[
+              styles.modeToggleButton,
+              homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive,
+            ]}
+            onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
+          >
+            <Text
               style={[
-                styles.modeToggleButton,
-                homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive,
+                styles.modeToggleText,
+                homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive,
               ]}
-              onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
             >
-              <Text
-                style={[
-                  styles.modeToggleText,
-                  homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive,
-                ]}
-              >
-                {tx("여행자", "Traveler")}
-              </Text>
-            </Pressable>
-            <Pressable
+              {tx("홈", "Home")}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.modeToggleButton,
+              homeMode === HOME_MODE_LOCAL && styles.modeToggleButtonActive,
+            ]}
+            onPress={() => setHomeMode(HOME_MODE_LOCAL)}
+          >
+            <Text
               style={[
-                styles.modeToggleButton,
-                homeMode === HOME_MODE_LOCAL && styles.modeToggleButtonActive,
+                styles.modeToggleText,
+                homeMode === HOME_MODE_LOCAL && styles.modeToggleTextActive,
               ]}
-              onPress={() => setHomeMode(HOME_MODE_LOCAL)}
             >
-              <Text
-                style={[
-                  styles.modeToggleText,
-                  homeMode === HOME_MODE_LOCAL && styles.modeToggleTextActive,
-                ]}
-              >
-                {tx("로컬", "Local")}
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
+              {tx("여행", "Trip")}
+            </Text>
+          </Pressable>
+        </View>
 
         <View style={styles.locationSection}>
           <View style={styles.badge}>
