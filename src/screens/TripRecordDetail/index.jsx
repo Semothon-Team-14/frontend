@@ -137,23 +137,39 @@ export function TripRecordDetail({ navigation, route }) {
       });
 
       const cityMingles = (minglesResponse?.mingles ?? []).filter((entry) => {
-        return Number(entry?.city?.id) === Number(loadedTrip?.cityId) &&
-          overlapsTripWindow(entry?.meetDateTime || entry?.updatedDateTime || entry?.createdDateTime, tripStartAt, tripEndAt);
+        return Number(entry?.city?.id) === Number(loadedTrip?.cityId);
       });
 
-      const mingleMinglerResponses = await Promise.all(
+      const mingleRows = await Promise.all(
         cityMingles.map(async (mingle) => {
           try {
             const response = await fetchMingleMinglers(mingle.id);
-            return response?.minglers ?? [];
+            return {
+              mingle,
+              minglers: response?.minglers ?? [],
+            };
           } catch {
-            return [];
+            return {
+              mingle,
+              minglers: [],
+            };
           }
         }),
       );
 
+      const relevantMingleRows = mingleRows.filter((row) => {
+        const myMembership = (row?.minglers ?? []).find(
+          (mingler) => Number(mingler?.userId) === Number(userId),
+        );
+        return overlapsTripWindow(
+          myMembership?.updatedDateTime || myMembership?.createdDateTime,
+          tripStartAt,
+          tripEndAt,
+        );
+      });
+
       const mingleCompanionIds = new Set();
-      mingleMinglerResponses.flat().forEach((mingler) => {
+      relevantMingleRows.flatMap((row) => row?.minglers ?? []).forEach((mingler) => {
         const mingleUserId = Number(mingler?.userId || 0);
         if (mingleUserId > 0 && mingleUserId !== Number(userId)) {
           mingleCompanionIds.add(mingleUserId);
@@ -184,16 +200,27 @@ export function TripRecordDetail({ navigation, route }) {
       setLocalMinglers(mappedCompanions.filter((entry) => entry.local));
       setTravelerMinglers(mappedCompanions.filter((entry) => !entry.local));
 
-      const mingleVisits = cityMingles
-        .filter((mingle) => String(mingle?.placeName || "").trim().length > 0)
-        .map((mingle) => ({
-          id: `m-${mingle?.id}`,
-          mingleId: Number(mingle?.id || 0),
-          placeName: String(mingle?.placeName || "-"),
+      const mingleVisits = relevantMingleRows
+        .filter((row) => String(row?.mingle?.placeName || "").trim().length > 0)
+        .map((row) => {
+          const myMembership = (row?.minglers ?? []).find(
+            (mingler) => Number(mingler?.userId) === Number(userId),
+          );
+          return {
+            id: `m-${row?.mingle?.id}`,
+            mingleId: Number(row?.mingle?.id || 0),
+            placeName: String(row?.mingle?.placeName || "-"),
           placeAddress: "",
-          visitedAt: mingle?.meetDateTime || mingle?.updatedDateTime || mingle?.createdDateTime || null,
+            visitedAt:
+              row?.mingle?.meetDateTime ||
+              myMembership?.updatedDateTime ||
+              myMembership?.createdDateTime ||
+              row?.mingle?.updatedDateTime ||
+              row?.mingle?.createdDateTime ||
+              null,
           imageUrls: [],
-        }))
+          };
+        })
         .sort((a, b) => String(a?.visitedAt || "").localeCompare(String(b?.visitedAt || "")));
 
       const uniqueByPlaceName = [];
