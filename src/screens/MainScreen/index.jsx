@@ -207,6 +207,7 @@ export function MainScreen() {
   }
 
   const visiblePlaces = places.slice(0, 3);
+  const quickMatchEnabled = Boolean(selectedCity?.id);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -221,7 +222,7 @@ export function MainScreen() {
       </View>
 
       <View style={styles.locationSection}>
-        <View style={styles.badge}><Text style={styles.badgeText}>Now</Text></View>
+        <View style={[styles.badge, !quickMatchEnabled && styles.badgeOff]}><Text style={styles.badgeText}>{quickMatchEnabled ? "Now" : "Off"}</Text></View>
         <View style={styles.locationRow}>
           <Text style={styles.locationKo}>{selectedCity?.name || "어디로 떠나시나요?"}</Text>
           <Position width={18} height={18} />
@@ -244,10 +245,12 @@ export function MainScreen() {
         </TouchableWithoutFeedback>
 
         <View style={styles.rightQuickStack}>
-          <TouchableWithoutFeedback onPress={() => navigation.navigate("QuickMatch", { cityId: selectedCity?.id })}>
-            <View style={styles.quickButtonCard}>
+          <TouchableWithoutFeedback onPress={() => quickMatchEnabled && navigation.navigate("QuickMatch", { cityId: selectedCity?.id })}>
+            <View style={[styles.quickButtonCard, !quickMatchEnabled && styles.quickButtonCardDisabled]}>
               <Quick />
-              <Text style={styles.quickButtonText}>빠른 매칭</Text>
+              <Text style={[styles.quickButtonText, !quickMatchEnabled && styles.quickButtonTextDisabled]}>
+                {quickMatchEnabled ? "빠른 매칭" : "지금은 사용할 수 없어요."}
+              </Text>
             </View>
           </TouchableWithoutFeedback>
           <TouchableWithoutFeedback onPress={() => navigation.navigate("Chats")}>
@@ -354,6 +357,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
+  badgeOff: {
+    backgroundColor: "#64748B",
+  },
   badgeText: {
     color: "#fff",
     fontSize: 12,
@@ -413,10 +419,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
   },
+  quickButtonCardDisabled: {
+    backgroundColor: "#EFF2F7",
+  },
   quickButtonText: {
     fontSize: 16,
     fontWeight: "700",
     color: "#111",
+  },
+  quickButtonTextDisabled: {
+    fontSize: 13,
+    color: "#6A7388",
   },
   communityIconWrap: {
     position: "relative",
