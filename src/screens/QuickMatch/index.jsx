@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { createQuickMatch } from "../../services/quickMatchService";
+import { joinMingleChatRoom } from "../../services/chatService";
 import {
   createQuickMatchSocketClient,
   publishCreateQuickMatch,
@@ -123,7 +124,7 @@ export function QuickMatch({ navigation, route }) {
     userSubscriptionRef.current = subscribeUserQuickMatches(
       clientRef.current,
       userId,
-      (event) => {
+      async (event) => {
         if (!mountedRef.current) {
           return;
         }
@@ -157,12 +158,24 @@ export function QuickMatch({ navigation, route }) {
             quickMatchId: null,
           };
           const acceptedChatRoomId = Number(event?.chatRoom?.id || 0);
-          navigation.navigate("Tabs", {
-            screen: "Chats",
-            ...(acceptedChatRoomId > 0
-              ? { params: { chatRoomId: acceptedChatRoomId } }
-              : {}),
-          });
+          if (acceptedChatRoomId > 0) {
+            navigation.navigate("ChatRoom", { chatRoomId: acceptedChatRoomId });
+            return;
+          }
+          const acceptedMingleId = Number(event?.quickMatch?.mingleId || 0);
+          if (acceptedMingleId > 0) {
+            try {
+              const joined = await joinMingleChatRoom(acceptedMingleId);
+              const joinedChatRoomId = Number(joined?.chatRoom?.id || 0);
+              if (joinedChatRoomId > 0) {
+                navigation.navigate("ChatRoom", { chatRoomId: joinedChatRoomId });
+                return;
+              }
+            } catch {
+              // Fall through to chat list if direct room open fails.
+            }
+          }
+          navigation.navigate("Tabs", { screen: "Chats" });
           return;
         }
 
