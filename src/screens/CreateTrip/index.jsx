@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { CalendarDateField } from "../../components/CalendarDateField";
@@ -215,32 +215,54 @@ export function CreateTrip({ navigation, route }) {
 
   async function handlePickTicket(source) {
     if (!selectedCity?.id) {
-      setError(tx("먼저 도착 도시를 선택해주세요.", "Select the destination city first."));
+      const message = tx("먼저 도착 도시를 선택해주세요.", "Select the destination city first.");
+      setError(message);
+      Alert.alert(tx("티켓 스캔", "Ticket Scan"), message);
       return;
     }
 
-    const permissionResult = source === "camera"
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    let permissionResult;
+    try {
+      permissionResult = source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    } catch {
+      const message = tx("권한 확인 중 오류가 발생했습니다.", "Failed to check permissions.");
+      setError(message);
+      Alert.alert(tx("티켓 스캔", "Ticket Scan"), message);
+      return;
+    }
 
     if (!permissionResult?.granted) {
-      setError(tx("티켓 이미지를 불러오기 위한 권한이 필요합니다.", "Permission is required to read ticket images."));
+      const message = tx("티켓 이미지를 불러오기 위한 권한이 필요합니다.", "Permission is required to read ticket images.");
+      setError(message);
+      Alert.alert(tx("티켓 스캔", "Ticket Scan"), message);
       return;
     }
 
-    const pickerResult = source === "camera"
-      ? await ImagePicker.launchCameraAsync({
-          mediaTypes: [ImagePicker.MediaTypeOptions.Images],
-          allowsEditing: false,
-          quality: 0.9,
-          base64: true,
-        })
-      : await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: [ImagePicker.MediaTypeOptions.Images],
-          allowsEditing: false,
-          quality: 0.9,
-          base64: true,
-        });
+    let pickerResult;
+    try {
+      pickerResult = source === "camera"
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: false,
+            quality: 0.9,
+            base64: true,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: false,
+            quality: 0.9,
+            base64: true,
+          });
+    } catch {
+      const message = source === "camera"
+        ? tx("카메라를 실행할 수 없습니다. 에뮬레이터에서는 갤러리 선택을 사용해주세요.", "Camera is not available. On emulators, use gallery selection.")
+        : tx("갤러리를 열 수 없습니다.", "Unable to open gallery.");
+      setError(message);
+      Alert.alert(tx("티켓 스캔", "Ticket Scan"), message);
+      return;
+    }
 
     if (pickerResult?.canceled) {
       return;
@@ -248,7 +270,9 @@ export function CreateTrip({ navigation, route }) {
 
     const asset = pickerResult?.assets?.[0] || null;
     if (!asset?.base64) {
-      setError(tx("이미지를 읽을 수 없습니다. 다시 시도해주세요.", "Could not read the image. Please try again."));
+      const message = tx("이미지를 읽을 수 없습니다. 다시 시도해주세요.", "Could not read the image. Please try again.");
+      setError(message);
+      Alert.alert(tx("티켓 스캔", "Ticket Scan"), message);
       return;
     }
 
@@ -277,7 +301,9 @@ export function CreateTrip({ navigation, route }) {
         setEndDate(nextStartDate);
       }
     } catch (scanError) {
-      setError(scanError?.message || tx("티켓 인식에 실패했습니다.", "Ticket recognition failed."));
+      const message = scanError?.message || tx("티켓 인식에 실패했습니다.", "Ticket recognition failed.");
+      setError(message);
+      Alert.alert(tx("티켓 스캔", "Ticket Scan"), message);
     } finally {
       setScanningTicket(false);
     }
