@@ -192,7 +192,7 @@ export function TripRecordDetail({ navigation, route }) {
           placeName: String(mingle?.placeName || "-"),
           placeAddress: "",
           visitedAt: mingle?.meetDateTime || mingle?.updatedDateTime || mingle?.createdDateTime || null,
-          imageUrl: null,
+          imageUrls: [],
         }))
         .sort((a, b) => String(a?.visitedAt || "").localeCompare(String(b?.visitedAt || "")));
 
@@ -215,7 +215,7 @@ export function TripRecordDetail({ navigation, route }) {
             const response = await fetchMinglePlacePhotos(visit.mingleId);
             return {
               ...visit,
-              imageUrl: response?.photos?.[0]?.imageUrl || null,
+              imageUrls: (response?.photos ?? []).map((photo) => photo?.imageUrl).filter(Boolean),
             };
           } catch {
             return visit;
@@ -288,21 +288,50 @@ export function TripRecordDetail({ navigation, route }) {
       return;
     }
 
+    const optimisticUri = selectedAsset.uri;
+    setVisitedPlaces((prev) => prev.map((entry) => {
+      if (Number(entry?.mingleId || 0) !== mingleId) {
+        return entry;
+      }
+      const existing = Array.isArray(entry?.imageUrls) ? entry.imageUrls : [];
+      return {
+        ...entry,
+        imageUrls: [...existing, optimisticUri],
+      };
+    }));
+
     try {
       setUploadingMingleId(mingleId);
-      await uploadMinglePlacePhoto(mingleId, selectedAsset.uri);
-      const photoResponse = await fetchMinglePlacePhotos(mingleId);
-      const newestImageUrl = photoResponse?.photos?.[0]?.imageUrl || null;
+      const uploadResponse = await uploadMinglePlacePhoto(mingleId, selectedAsset.uri);
+      const uploadedImageUrl = uploadResponse?.photo?.imageUrl || null;
       setVisitedPlaces((prev) => prev.map((entry) => {
         if (Number(entry?.mingleId || 0) !== mingleId) {
           return entry;
         }
+        const existing = Array.isArray(entry?.imageUrls) ? entry.imageUrls : [];
+        const withoutOptimistic = existing.filter((url) => url !== optimisticUri);
+        if (!uploadedImageUrl) {
+          return {
+            ...entry,
+            imageUrls: withoutOptimistic,
+          };
+        }
         return {
           ...entry,
-          imageUrl: newestImageUrl,
+          imageUrls: [...withoutOptimistic, uploadedImageUrl],
         };
       }));
     } catch (error) {
+      setVisitedPlaces((prev) => prev.map((entry) => {
+        if (Number(entry?.mingleId || 0) !== mingleId) {
+          return entry;
+        }
+        const existing = Array.isArray(entry?.imageUrls) ? entry.imageUrls : [];
+        return {
+          ...entry,
+          imageUrls: existing.filter((url) => url !== optimisticUri),
+        };
+      }));
       Alert.alert(tx("사진 업로드", "Photo Upload"), error?.message || tx("사진 업로드에 실패했습니다.", "Failed to upload photo."));
     } finally {
       setUploadingMingleId(null);
@@ -424,7 +453,10 @@ export function TripRecordDetail({ navigation, route }) {
             <Text style={styles.visitName}>{visit.placeName}</Text>
             <Text style={styles.visitSubName}>{visit.placeAddress}</Text>
             <View style={styles.visitThumbRow}>
-              {visit.imageUrl ? <Image source={{ uri: visit.imageUrl }} style={styles.visitThumbImage} /> : <View style={[styles.visitThumbImage, styles.visitThumbPlaceholder]} />}
+              {(visit?.imageUrls ?? []).length === 0 ? <View style={[styles.visitThumbImage, styles.visitThumbPlaceholder]} /> : null}
+              {(visit?.imageUrls ?? []).map((imageUrl) => (
+                <Image key={`${visit.id}-${imageUrl}`} source={{ uri: imageUrl }} style={styles.visitThumbImage} />
+              ))}
               <Pressable
                 style={[styles.visitPlusTile, Number(uploadingMingleId) === Number(visit?.mingleId) && styles.visitPlusTileUploading]}
                 onPress={() => openVisitPhotoPicker(visit)}
@@ -627,6 +659,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     marginTop: 8,
+    flexWrap: "wrap",
   },
   visitThumbImage: {
     width: 70,
