@@ -1,27 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
-import { fetchChatMessages, fetchChatRooms, fetchUsers } from "../../services";
-import { createChatSocketClient, sendChatRoomMessage, subscribeChatRoom } from "../../services/chatSocketService";
+import { fetchChatRooms, fetchUsers } from "../../services";
 
-function formatClock(value) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
+const TAB_LOCAL = "LOCAL";
+const TAB_TRAVELER = "TRAVELER";
 
 function formatRoomTime(value) {
   if (!value) {
@@ -41,78 +27,47 @@ function formatRoomTime(value) {
   }).format(date);
 }
 
-function uniqueMessages(messages) {
-  return [...messages]
-    .filter((message) => message?.id)
-    .sort((a, b) => String(a.createdDateTime || "").localeCompare(String(b.createdDateTime || "")))
-    .filter((message, index, array) => array.findIndex((item) => item.id === message.id) === index);
+function roomSubtitle(room) {
+  if (room.directChat) {
+    return "1:1 밍글 채팅";
+  }
+
+  return room.mingleId ? "여행 밍글 채팅" : "그룹 채팅";
 }
 
-export function Chats({ route }) {
+export function Chats({ navigation, route }) {
   const { token } = useAuth();
   const userId = useMemo(() => decodeUserIdFromToken(token), [token]);
-  const clientRef = useRef(null);
-  const subscriptionRef = useRef(null);
-  const messageListRef = useRef(null);
   const [rooms, setRooms] = useState([]);
   const [usersById, setUsersById] = useState({});
-  const [selectedRoomId, setSelectedRoomId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
-  const [roomsLoading, setRoomsLoading] = useState(false);
-  const [messagesLoading, setMessagesLoading] = useState(false);
-  const [socketReady, setSocketReady] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [socketError, setSocketError] = useState(null);
+  const [activeTab, setActiveTab] = useState(TAB_LOCAL);
+  const handledAutoOpenRef = useRef(new Set());
 
-  const selectedRoom = useMemo(
-    () => rooms.find((room) => room.id === selectedRoomId) || null,
-    [rooms, selectedRoomId],
-  );
+  const localRooms = useMemo(() => rooms.filter((room) => room?.directChat), [rooms]);
+  const travelerRooms = useMemo(() => rooms.filter((room) => !room?.directChat), [rooms]);
+  const visibleRooms = activeTab === TAB_LOCAL ? localRooms : travelerRooms;
 
-  const roomTitle = useMemo(() => {
-    if (!selectedRoom) {
-      return "채팅";
-    }
-
-    if (selectedRoom.name) {
-      return selectedRoom.name;
-    }
-
-    if (selectedRoom.directChat) {
-      const otherUserId = (selectedRoom.participantUserIds || []).find((participantId) => participantId !== userId);
-      if (otherUserId) {
-        return usersById[otherUserId]?.name || `USER #${otherUserId}`;
-      }
-    }
-
-    return `그룹 채팅 ${selectedRoom.id}`;
-  }, [selectedRoom, userId, usersById]);
-
-  const scrollToBottom = useCallback((animated = true) => {
-    requestAnimationFrame(() => {
-      messageListRef.current?.scrollToEnd({ animated });
-    });
-  }, []);
-
-  function roomListLabel(room) {
-    if (room.name) {
+  const roomListLabel = useCallback((room) => {
+    if (room?.name) {
       return room.name;
     }
 
-    if (room.directChat) {
-      const otherUserId = (room.participantUserIds || []).find((participantId) => participantId !== userId);
+    if (room?.directChat) {
+      const otherUserId = (room?.participantUserIds || []).find((participantId) => participantId !== userId);
       if (otherUserId) {
         return usersById[otherUserId]?.name || `USER #${otherUserId}`;
       }
     }
 
-    return `채팅방 #${room.id}`;
-  }
+    return `채팅방 #${room?.id}`;
+  }, [userId, usersById]);
 
   const loadRooms = useCallback(async () => {
-    setRoomsLoading(true);
+    setLoading(true);
     setError(null);
+
     try {
       const [roomResponse, usersResponse] = await Promise.all([fetchChatRooms(), fetchUsers()]);
       const loadedRooms = roomResponse?.chatRooms ?? [];
@@ -124,39 +79,12 @@ export function Chats({ route }) {
 
       setUsersById(userMap);
       setRooms(loadedRooms);
-      setSelectedRoomId((prev) => {
-        if (prev && loadedRooms.some((room) => room.id === prev)) {
-          return prev;
-        }
-
-        return loadedRooms[0]?.id || null;
-      });
     } catch (requestError) {
       setRooms([]);
       setUsersById({});
-      setSelectedRoomId(null);
       setError(requestError?.message || "채팅방을 불러오지 못했습니다.");
     } finally {
-      setRoomsLoading(false);
-    }
-  }, []);
-
-  const loadMessages = useCallback(async (chatRoomId) => {
-    if (!chatRoomId) {
-      setMessages([]);
-      return;
-    }
-
-    setMessagesLoading(true);
-    setError(null);
-    try {
-      const response = await fetchChatMessages(chatRoomId);
-      setMessages(uniqueMessages(response?.messages ?? []));
-    } catch (requestError) {
-      setMessages([]);
-      setError(requestError?.message || "메시지를 불러오지 못했습니다.");
-    } finally {
-      setMessagesLoading(false);
+      setLoading(false);
     }
   }, []);
 
@@ -167,171 +95,78 @@ export function Chats({ route }) {
   );
 
   useEffect(() => {
-    loadMessages(selectedRoomId);
-  }, [selectedRoomId, loadMessages]);
-
-  useEffect(() => {
-    if (!selectedRoomId || messages.length === 0) {
-      return;
-    }
-
-    scrollToBottom();
-  }, [messages, scrollToBottom, selectedRoomId]);
-
-  useEffect(() => {
     const requestedChatRoomId = Number(route?.params?.chatRoomId);
     if (!Number.isFinite(requestedChatRoomId) || requestedChatRoomId <= 0) {
       return;
     }
 
-    if (rooms.some((room) => room.id === requestedChatRoomId)) {
-      setSelectedRoomId(requestedChatRoomId);
-    }
-  }, [rooms, route?.params?.chatRoomId]);
-
-  useEffect(() => {
-    const client = createChatSocketClient({
-      onConnect: () => {
-        setSocketReady(true);
-        setSocketError(null);
-      },
-      onError: (message) => {
-        setSocketReady(false);
-        setSocketError(message || "WebSocket connection error");
-      },
-    });
-
-    clientRef.current = client;
-    client.activate();
-
-    return () => {
-      subscriptionRef.current?.unsubscribe();
-      subscriptionRef.current = null;
-      client.deactivate();
-      clientRef.current = null;
-      setSocketReady(false);
-      setSocketError(null);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!socketReady || !selectedRoomId || !clientRef.current) {
+    if (handledAutoOpenRef.current.has(requestedChatRoomId)) {
       return;
     }
 
-    subscriptionRef.current?.unsubscribe();
-    subscriptionRef.current = subscribeChatRoom(clientRef.current, selectedRoomId, (message) => {
-      setMessages((prev) => uniqueMessages([...prev, message]));
-      setRooms((prev) => {
-        const nextRooms = prev.map((room) =>
-          room.id === selectedRoomId ? { ...room, updatedDateTime: message.createdDateTime || room.updatedDateTime } : room,
-        );
-        return [...nextRooms].sort((a, b) => String(b.updatedDateTime || "").localeCompare(String(a.updatedDateTime || "")));
-      });
-    });
-
-    return () => {
-      subscriptionRef.current?.unsubscribe();
-      subscriptionRef.current = null;
-    };
-  }, [selectedRoomId, socketReady]);
-
-  async function handleSend() {
-    const content = input.trim();
-    if (!content || !selectedRoomId) {
+    if (!rooms.some((room) => room.id === requestedChatRoomId)) {
       return;
     }
 
-    if (!clientRef.current?.connected) {
-      setSocketError("소켓 연결이 아직 준비되지 않았습니다.");
-      return;
-    }
-
-    setSocketError(null);
-    setError(null);
-    setInput("");
-    sendChatRoomMessage(clientRef.current, selectedRoomId, content);
-  }
+    handledAutoOpenRef.current.add(requestedChatRoomId);
+    navigation.navigate("ChatRoom", { chatRoomId: requestedChatRoomId });
+  }, [navigation, rooms, route?.params?.chatRoomId]);
 
   return (
     <View style={styles.container}>
-      <View style={styles.mainSplit}>
-        <View style={styles.roomsPane}>
-          <View style={styles.roomsHeader}>
-            <Text style={styles.roomsTitle}>채팅방</Text>
-            <Pressable onPress={loadRooms}>
-              <Ionicons name="refresh" size={18} color="#1C73F0" />
-            </Pressable>
-          </View>
-          {roomsLoading ? <Text style={styles.metaText}>불러오는 중...</Text> : null}
-          {!roomsLoading && rooms.length === 0 ? <Text style={styles.metaText}>참여 중인 채팅방이 없습니다.</Text> : null}
-          <FlatList
-            data={rooms}
-            keyExtractor={(item) => String(item.id)}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.roomList}
-            renderItem={({ item }) => {
-              const selected = item.id === selectedRoomId;
-              return (
-                <Pressable style={[styles.roomItem, selected && styles.roomItemActive]} onPress={() => setSelectedRoomId(item.id)}>
-                  <Text style={[styles.roomName, selected && styles.roomNameActive]} numberOfLines={1}>{roomListLabel(item)}</Text>
-                  <Text style={[styles.roomTime, selected && styles.roomTimeActive]}>{formatRoomTime(item.updatedDateTime)}</Text>
-                </Pressable>
-              );
-            }}
-          />
-        </View>
-
-        <View style={styles.chatPane}>
-          <View style={styles.chatHeader}>
-            <Text style={styles.chatTitle} numberOfLines={1}>{roomTitle}</Text>
-            <Text style={[styles.socketState, socketReady ? styles.socketReady : styles.socketPending]}>
-              {socketReady ? "LIVE" : "OFFLINE"}
-            </Text>
-          </View>
-
-          {messagesLoading ? <Text style={styles.metaText}>메시지를 불러오는 중...</Text> : null}
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {socketError ? <Text style={styles.errorText}>{socketError}</Text> : null}
-
-          <FlatList
-            ref={messageListRef}
-            data={messages}
-            keyExtractor={(item) => String(item.id)}
-            style={styles.messageList}
-            contentContainerStyle={styles.messageContent}
-            onContentSizeChange={() => scrollToBottom(false)}
-            renderItem={({ item }) => {
-              const mine = item.senderUserId === userId;
-              return (
-                <View style={[styles.messageRow, mine && styles.messageRowMine]}>
-                  <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
-                    <Text style={[styles.messageText, mine && styles.messageTextMine]}>{item.content}</Text>
-                    <Text style={[styles.messageTime, mine && styles.messageTimeMine]}>{formatClock(item.createdDateTime)}</Text>
-                  </View>
-                </View>
-              );
-            }}
-            ListEmptyComponent={!messagesLoading ? <Text style={styles.metaText}>메시지가 없습니다.</Text> : null}
-          />
-
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              value={input}
-              onChangeText={setInput}
-              placeholder={selectedRoomId ? "메시지를 입력하세요" : "채팅방을 선택하세요"}
-              editable={Boolean(selectedRoomId)}
-              multiline={false}
-              returnKeyType="send"
-              onSubmitEditing={handleSend}
-            />
-            <Pressable style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]} onPress={handleSend} disabled={!input.trim()}>
-              <Ionicons name="send" size={18} color="#fff" />
-            </Pressable>
-          </View>
-        </View>
+      <View style={styles.headerRow}>
+        <Text style={styles.headerTitle}>채팅</Text>
+        <Pressable onPress={loadRooms} style={styles.refreshButton}>
+          <Ionicons name="refresh" size={18} color="#1C73F0" />
+        </Pressable>
       </View>
+
+      <View style={styles.tabRow}>
+        <Pressable
+          style={[styles.tabButton, activeTab === TAB_LOCAL && styles.tabButtonActive]}
+          onPress={() => setActiveTab(TAB_LOCAL)}
+        >
+          <Text style={[styles.tabText, activeTab === TAB_LOCAL && styles.tabTextActive]}>로컬 밍글러</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tabButton, activeTab === TAB_TRAVELER && styles.tabButtonActive]}
+          onPress={() => setActiveTab(TAB_TRAVELER)}
+        >
+          <Text style={[styles.tabText, activeTab === TAB_TRAVELER && styles.tabTextActive]}>여행자 밍글러</Text>
+        </Pressable>
+      </View>
+
+      {loading ? <Text style={styles.metaText}>불러오는 중...</Text> : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <FlatList
+        data={visibleRooms}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => {
+          const title = roomListLabel(item);
+          return (
+            <Pressable
+              style={styles.roomItem}
+              onPress={() => navigation.navigate("ChatRoom", { chatRoomId: item.id })}
+            >
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{String(title || "?").slice(0, 1).toUpperCase()}</Text>
+              </View>
+
+              <View style={styles.roomMain}>
+                <View style={styles.roomTopRow}>
+                  <Text style={styles.roomName} numberOfLines={1}>{title}</Text>
+                  <Text style={styles.roomTime}>{formatRoomTime(item.updatedDateTime)}</Text>
+                </View>
+                <Text style={styles.roomSubtitle} numberOfLines={1}>{roomSubtitle(item)}</Text>
+              </View>
+            </Pressable>
+          );
+        }}
+        ListEmptyComponent={!loading ? <Text style={styles.metaText}>표시할 채팅방이 없습니다.</Text> : null}
+      />
     </View>
   );
 }
@@ -339,174 +174,123 @@ export function Chats({ route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F1F2F5",
+    backgroundColor: "#F5F6F8",
     paddingTop: 52,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
-  mainSplit: {
-    flex: 1,
-    gap: 10,
-  },
-  roomsPane: {
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    padding: 12,
-    maxHeight: 240,
-  },
-  roomsHeader: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  roomsTitle: {
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 24,
     fontWeight: "700",
-    color: "#111",
+    color: "#111827",
   },
-  roomList: {
-    gap: 8,
+  refreshButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  tabRow: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  tabButton: {
+    flex: 1,
+    height: 38,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabButtonActive: {
+    backgroundColor: "#1D4ED8",
+  },
+  tabText: {
+    color: "#4B5563",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  tabTextActive: {
+    color: "#FFFFFF",
+  },
+  listContent: {
+    gap: 10,
+    paddingBottom: 16,
   },
   roomItem: {
-    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#EBECF0",
-    backgroundColor: "#F8F9FC",
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 2,
   },
-  roomItemActive: {
-    borderColor: "#1C73F0",
+  avatarCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: "#EAF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#CFE0FF",
   },
-  roomName: {
-    fontSize: 14,
-    color: "#222",
+  avatarText: {
+    color: "#1D4ED8",
+    fontSize: 16,
     fontWeight: "700",
   },
-  roomNameActive: {
-    color: "#1C73F0",
-  },
-  roomTime: {
-    fontSize: 12,
-    color: "#7B7B7B",
-  },
-  roomTimeActive: {
-    color: "#1C73F0",
-  },
-  chatPane: {
+  roomMain: {
     flex: 1,
-    backgroundColor: "#FFF",
-    borderRadius: 16,
-    padding: 12,
   },
-  chatHeader: {
+  roomTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  chatTitle: {
-    flex: 1,
-    marginRight: 8,
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#111",
-  },
-  socketState: {
-    fontSize: 11,
-    fontWeight: "700",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-  socketReady: {
-    color: "#fff",
-    backgroundColor: "#1C73F0",
-  },
-  socketPending: {
-    color: "#fff",
-    backgroundColor: "#9CA3AF",
-  },
-  messageList: {
-    flex: 1,
-  },
-  messageContent: {
     gap: 8,
-    paddingVertical: 6,
   },
-  messageRow: {
-    alignItems: "flex-start",
+  roomName: {
+    flex: 1,
+    color: "#111827",
+    fontSize: 15,
+    fontWeight: "700",
   },
-  messageRowMine: {
-    alignItems: "flex-end",
-  },
-  bubble: {
-    maxWidth: "86%",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 4,
-  },
-  bubbleOther: {
-    backgroundColor: "#F1F2F5",
-  },
-  bubbleMine: {
-    backgroundColor: "#1C73F0",
-  },
-  messageText: {
-    color: "#171717",
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  messageTextMine: {
-    color: "#fff",
-  },
-  messageTime: {
+  roomTime: {
+    color: "#6B7280",
     fontSize: 11,
-    color: "#8A8A8A",
+    fontWeight: "500",
   },
-  messageTimeMine: {
-    color: "#DDEAFF",
+  roomSubtitle: {
+    marginTop: 3,
+    color: "#6B7280",
+    fontSize: 12,
   },
   metaText: {
-    color: "#8A8A8A",
+    color: "#6B7280",
     fontSize: 13,
-    marginBottom: 8,
+    textAlign: "center",
+    paddingVertical: 12,
   },
   errorText: {
     color: "#C62828",
     fontSize: 13,
     marginBottom: 8,
-  },
-  inputRow: {
-    marginTop: 8,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 120,
-    borderRadius: 20,
-    backgroundColor: "#F1F2F5",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1C73F0",
-  },
-  sendButtonDisabled: {
-    opacity: 0.5,
   },
 });
