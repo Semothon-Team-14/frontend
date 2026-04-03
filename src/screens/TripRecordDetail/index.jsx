@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActionSheetIOS, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import * as ImagePicker from "expo-image-picker";
 import { useLocale } from "../../locale";
 import { fetchChatRooms } from "../../services/chatService";
 import { fetchLocals } from "../../services/localService";
-import { fetchMingleMinglers, fetchMinglePlacePhotos, fetchMingles } from "../../services/mingleService";
+import { fetchMingleMinglers, fetchMinglePlacePhotos, fetchMingles, uploadMinglePlacePhoto } from "../../services/mingleService";
 import { fetchAllCities } from "../../services/placeService";
 import { fetchTrip } from "../../services/tripService";
 import { fetchUsers } from "../../services/userService";
@@ -86,6 +87,7 @@ export function TripRecordDetail({ navigation, route }) {
   const [localMinglers, setLocalMinglers] = useState([]);
   const [travelerMinglers, setTravelerMinglers] = useState([]);
   const [visitedPlaces, setVisitedPlaces] = useState([]);
+  const [uploadingMingleId, setUploadingMingleId] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const loadDetail = useCallback(async () => {
@@ -245,6 +247,100 @@ export function TripRecordDetail({ navigation, route }) {
     navigation.navigate("CreateTrip", { tripId });
   }
 
+  async function pickAndUploadVisitPhoto(visit, source) {
+    const mingleId = Number(visit?.mingleId || 0);
+    if (mingleId <= 0) {
+      return;
+    }
+
+    const permissionResult = source === "camera"
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult?.granted) {
+      Alert.alert(tx("사진 업로드", "Photo Upload"), tx("사진 접근 권한이 필요합니다.", "Photo permission is required."));
+      return;
+    }
+
+    let pickerResult;
+    try {
+      pickerResult = source === "camera"
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: false,
+            quality: 0.9,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: false,
+            quality: 0.9,
+          });
+    } catch {
+      Alert.alert(tx("사진 업로드", "Photo Upload"), tx("사진을 불러올 수 없습니다.", "Unable to open photo picker."));
+      return;
+    }
+
+    if (pickerResult?.canceled) {
+      return;
+    }
+    const selectedAsset = pickerResult?.assets?.[0];
+    if (!selectedAsset?.uri) {
+      Alert.alert(tx("사진 업로드", "Photo Upload"), tx("선택된 이미지가 없습니다.", "No selected image."));
+      return;
+    }
+
+    try {
+      setUploadingMingleId(mingleId);
+      await uploadMinglePlacePhoto(mingleId, selectedAsset.uri);
+      const photoResponse = await fetchMinglePlacePhotos(mingleId);
+      const newestImageUrl = photoResponse?.photos?.[0]?.imageUrl || null;
+      setVisitedPlaces((prev) => prev.map((entry) => {
+        if (Number(entry?.mingleId || 0) !== mingleId) {
+          return entry;
+        }
+        return {
+          ...entry,
+          imageUrl: newestImageUrl,
+        };
+      }));
+    } catch (error) {
+      Alert.alert(tx("사진 업로드", "Photo Upload"), error?.message || tx("사진 업로드에 실패했습니다.", "Failed to upload photo."));
+    } finally {
+      setUploadingMingleId(null);
+    }
+  }
+
+  function openVisitPhotoPicker(visit) {
+    const title = tx("사진 업로드", "Upload Photo");
+    const cameraText = tx("카메라", "Camera");
+    const galleryText = tx("갤러리", "Gallery");
+    const cancelText = tx("취소", "Cancel");
+
+    if (Platform.OS === "ios" && ActionSheetIOS?.showActionSheetWithOptions) {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title,
+          options: [cameraText, galleryText, cancelText],
+          cancelButtonIndex: 2,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 0) {
+            pickAndUploadVisitPhoto(visit, "camera");
+          }
+          if (buttonIndex === 1) {
+            pickAndUploadVisitPhoto(visit, "gallery");
+          }
+        },
+      );
+      return;
+    }
+
+    Alert.alert(title, undefined, [
+      { text: cameraText, onPress: () => pickAndUploadVisitPhoto(visit, "camera") },
+      { text: galleryText, onPress: () => pickAndUploadVisitPhoto(visit, "gallery") },
+      { text: cancelText, style: "cancel" },
+    ]);
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.header}>
@@ -329,9 +425,13 @@ export function TripRecordDetail({ navigation, route }) {
             <Text style={styles.visitSubName}>{visit.placeAddress}</Text>
             <View style={styles.visitThumbRow}>
               {visit.imageUrl ? <Image source={{ uri: visit.imageUrl }} style={styles.visitThumbImage} /> : <View style={[styles.visitThumbImage, styles.visitThumbPlaceholder]} />}
-              <View style={styles.visitPlusTile}>
+              <Pressable
+                style={[styles.visitPlusTile, Number(uploadingMingleId) === Number(visit?.mingleId) && styles.visitPlusTileUploading]}
+                onPress={() => openVisitPhotoPicker(visit)}
+                disabled={Number(uploadingMingleId) === Number(visit?.mingleId)}
+              >
                 <Ionicons name="add" size={18} color="#9CA5B5" />
-              </View>
+              </Pressable>
             </View>
           </View>
         ))}
@@ -545,5 +645,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#D5DAE4",
     alignItems: "center",
     justifyContent: "center",
+  },
+  visitPlusTileUploading: {
+    opacity: 0.55,
   },
 });
