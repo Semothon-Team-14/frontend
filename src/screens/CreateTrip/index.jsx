@@ -412,7 +412,6 @@ export function CreateTrip({ navigation, route }) {
               </Pressable>
             </View>
             <Text style={styles.tripLocationSubtitle}>{getCitySubName(fromCity, isKorean) || String(fromAirportCode || EMPTY_FIELD)}</Text>
-            <Text style={styles.tripLocationClock}>{formatTime(departureDateTime, locale)}</Text>
             <Text style={styles.tripLocationTime}>{formatDateMeta(toDateOnly(departureDateTime) || startDate, locale)}</Text>
           </View>
         </View>
@@ -431,7 +430,6 @@ export function CreateTrip({ navigation, route }) {
               </Pressable>
             </View>
             <Text style={styles.tripLocationSubtitle}>{getCitySubName(selectedCity, isKorean) || String(toAirportCode || EMPTY_FIELD)}</Text>
-            <Text style={styles.tripLocationClock}>{formatTime(departureLandingDateTime, locale)}</Text>
             <Text style={styles.tripLocationTime}>{formatDateMeta(endDate || toDateOnly(departureLandingDateTime) || startDate, locale)}</Text>
           </View>
         </View>
@@ -617,13 +615,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     marginTop: 2,
-  },
-  tripLocationClock: {
-    marginTop: 10,
-    color: "#20232A",
-    fontSize: 32 / 2,
-    fontWeight: "800",
-    letterSpacing: 0.1,
   },
   tripLocationTime: {
     marginTop: 2,
