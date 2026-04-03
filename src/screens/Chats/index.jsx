@@ -305,7 +305,9 @@ export function Chats({ route }) {
               onChangeText={setInput}
               placeholder={selectedRoomId ? "메시지를 입력하세요" : "채팅방을 선택하세요"}
               editable={Boolean(selectedRoomId)}
-              multiline
+              multiline={false}
+              returnKeyType="send"
+              onSubmitEditing={handleSend}
             />
             <Pressable style={[styles.sendButton, !input.trim() && styles.sendButtonDisabled]} onPress={handleSend} disabled={!input.trim()}>
               <Ionicons name="send" size={18} color="#fff" />
