@@ -145,6 +145,7 @@ export function Nearby({ route }) {
   const [placeDetailLoading, setPlaceDetailLoading] = useState(false);
   const placeSearchSequenceRef = useRef(0);
   const placeSessionTokenRef = useRef(`mingle-${Date.now()}`);
+  const skipNextPlaceSearchRef = useRef(false);
 
   const cityId = Number(route?.params?.cityId);
   const cityName = String(route?.params?.cityName || "").trim();
@@ -346,6 +347,13 @@ export function Nearby({ route }) {
       return undefined;
     }
 
+    if (skipNextPlaceSearchRef.current) {
+      skipNextPlaceSearchRef.current = false;
+      setPlaceSearchLoading(false);
+      setPlaceSearchError(null);
+      return undefined;
+    }
+
     const query = placeQuery.trim();
     if (query.length < 2) {
       setPlaceSuggestions([]);
@@ -407,6 +415,7 @@ export function Nearby({ route }) {
         latitude: details.latitude,
         longitude: details.longitude,
       }));
+      skipNextPlaceSearchRef.current = true;
       setPlaceQuery(displayName);
       setPlaceSuggestions([]);
       setPlaceSearchError(null);
