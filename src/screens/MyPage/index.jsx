@@ -362,7 +362,7 @@ export function MyPage({ navigation }) {
                 onPress={() => openTripEditor(safeTripId)}
                 disabled={safeTripId <= 0}
               >
-                {cardImageUrl ? <Image source={{ uri: cardImageUrl }} style={styles.tripCardBackgroundImage} /> : null}
+                {cardImageUrl ? <Image source={{ uri: cardImageUrl }} style={styles.tripCardBackgroundImage} resizeMode="cover" /> : null}
                 <View style={[styles.tripCardOverlay, cardImageUrl && styles.tripCardOverlayWithImage]} />
                 <View style={styles.tripCardContent}>
                   <View style={styles.tripHead}>
@@ -519,14 +519,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   tripCard: {
-    backgroundColor: "#EEF1F6",
+    backgroundColor: "#DCE6F8",
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 15,
     overflow: "hidden",
     position: "relative",
-    borderWidth: 1,
-    borderColor: "#FFFFFF",
+    borderWidth: 0,
   },
   tripCardBackgroundImage: {
     ...StyleSheet.absoluteFillObject,
@@ -535,10 +534,10 @@ const styles = StyleSheet.create({
   },
   tripCardOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(248,250,252,0.92)",
+    backgroundColor: "rgba(15,23,42,0.12)",
   },
   tripCardOverlayWithImage: {
-    backgroundColor: "rgba(248,250,252,0.82)",
+    backgroundColor: "rgba(15,23,42,0.18)",
   },
   tripCardContent: {
     position: "relative",
