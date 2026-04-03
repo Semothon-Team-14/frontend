@@ -366,7 +366,7 @@ export function MainScreen() {
         </Pressable>
 
         <View style={styles.moreRow}>
-          <Text style={styles.moreText}>인기 장소 더보기</Text>
+          <Text style={styles.moreText}>더보기</Text>
           <Ionicons name="chevron-forward" size={14} color="#818181" />
         </View>
       </View>
