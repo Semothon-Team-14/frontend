@@ -558,22 +558,6 @@ export function MainScreen() {
           <Pressable
             style={[
               styles.modeToggleButton,
-              homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive,
-            ]}
-            onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
-          >
-            <Text
-              style={[
-                styles.modeToggleText,
-                homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive,
-              ]}
-            >
-              {tx("홈", "Home")}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.modeToggleButton,
               homeMode === HOME_MODE_LOCAL && styles.modeToggleButtonActive,
             ]}
             onPress={() => setHomeMode(HOME_MODE_LOCAL)}
@@ -582,6 +566,22 @@ export function MainScreen() {
               style={[
                 styles.modeToggleText,
                 homeMode === HOME_MODE_LOCAL && styles.modeToggleTextActive,
+              ]}
+            >
+              {tx("홈", "Home")}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.modeToggleButton,
+              homeMode === HOME_MODE_TRAVELER && styles.modeToggleButtonActive,
+            ]}
+            onPress={() => setHomeMode(HOME_MODE_TRAVELER)}
+          >
+            <Text
+              style={[
+                styles.modeToggleText,
+                homeMode === HOME_MODE_TRAVELER && styles.modeToggleTextActive,
               ]}
             >
               {tx("여행", "Trip")}
