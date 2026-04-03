@@ -136,7 +136,7 @@ export function SignUpScreen({ navigation }) {
         );
         const loadedKeywords = (keywordResponse?.keywords ?? [])
           .slice()
-          .sort((a, b) => Number(b?.priority ?? 0) - Number(a?.priority ?? 0));
+          .sort((a, b) => Number(a?.priority ?? 999) - Number(b?.priority ?? 999));
 
         setCities(dedupedCities);
         setKeywords(loadedKeywords);
