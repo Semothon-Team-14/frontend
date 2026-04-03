@@ -104,8 +104,12 @@ function isValidCoordinatePair(latitude, longitude) {
 }
 
 function resolveCityCenter(city, placesByType) {
-  const cityLatitude = toCoordinateValue(city?.latitude ?? city?.lat);
-  const cityLongitude = toCoordinateValue(city?.longitude ?? city?.lng);
+  const cityLatitude = toCoordinateValue(
+    city?.centerLatitude ?? city?.latitude ?? city?.lat,
+  );
+  const cityLongitude = toCoordinateValue(
+    city?.centerLongitude ?? city?.longitude ?? city?.lng,
+  );
   if (isValidCoordinatePair(cityLatitude, cityLongitude)) {
     return { latitude: cityLatitude, longitude: cityLongitude };
   }
