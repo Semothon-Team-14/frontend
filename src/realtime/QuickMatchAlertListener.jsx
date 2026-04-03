@@ -7,7 +7,6 @@ import { navigationRef } from "../navigation/navigationRef";
 import { joinMingleChatRoom } from "../services/chatService";
 import {
   createQuickMatchSocketClient,
-  publishAcceptQuickMatch,
   publishDeclineQuickMatch,
   subscribeCityQuickMatches,
   subscribeUserQuickMatches,
@@ -43,11 +42,6 @@ function isAlreadyAcceptedError(event) {
   return reason.includes("already resolved") && reason.includes("accepted");
 }
 
-function isWebSocketReceiptTimeout(error) {
-  const message = String(error?.message || "").toLowerCase();
-  return message.includes("receipt timeout");
-}
-
 async function resolveDirectQuickMatchChatRoomId({ quickMatchId, acceptedByUserId }) {
   let resolvedAcceptedByUserId = toNumberOrNull(acceptedByUserId);
 
@@ -81,6 +75,57 @@ async function resolveDirectQuickMatchChatRoomId({ quickMatchId, acceptedByUserI
   } catch {
     return null;
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function resolveDirectQuickMatchChatRoomIdWithRetry({
+  quickMatchId,
+  acceptedByUserId,
+  retryCount = 5,
+  retryDelayMs = 220,
+}) {
+  for (let attempt = 0; attempt <= retryCount; attempt += 1) {
+    const resolved = await resolveDirectQuickMatchChatRoomId({
+      quickMatchId,
+      acceptedByUserId,
+    });
+    if (resolved) {
+      return resolved;
+    }
+
+    if (attempt < retryCount) {
+      await sleep(retryDelayMs);
+    }
+  }
+
+  return null;
+}
+
+function resetToChatsThenOpenChatRoom(chatRoomId) {
+  if (!navigationRef.isReady() || !chatRoomId) {
+    return;
+  }
+
+  navigationRef.reset({
+    index: 1,
+    routes: [
+      {
+        name: "Tabs",
+        params: {
+          screen: "Chats",
+        },
+      },
+      {
+        name: "ChatRoom",
+        params: {
+          chatRoomId,
+        },
+      },
+    ],
+  });
 }
 
 function unsubscribeAllCitySubscriptions(containerRef) {
@@ -191,32 +236,21 @@ export function QuickMatchAlertListener() {
       return;
     }
 
+    // Close popup immediately for responsive UX.
+    setIncomingQuickMatch(null);
     setIncomingActionLoading(true);
     setPendingAcceptedQuickMatchId(quickMatchId);
     resolvedQuickMatchIdsRef.current.add(quickMatchId);
     try {
-      let acceptedResult = null;
-      if (clientRef.current?.connected) {
-        try {
-          await publishAcceptQuickMatch(clientRef.current, quickMatchId);
-        } catch (publishError) {
-          if (!isWebSocketReceiptTimeout(publishError)) {
-            throw publishError;
-          }
-          acceptedResult = await acceptQuickMatch(quickMatchId);
-        }
-      } else {
-        acceptedResult = await acceptQuickMatch(quickMatchId);
-      }
-      setIncomingQuickMatch(null);
+      const acceptedResult = await acceptQuickMatch(quickMatchId);
       const acceptedChatRoomId =
         toNumberOrNull(acceptedResult?.result?.chatRoom?.id) ||
-        (await resolveDirectQuickMatchChatRoomId({
+        (await resolveDirectQuickMatchChatRoomIdWithRetry({
           quickMatchId,
           acceptedByUserId: userId,
         }));
-      if (acceptedChatRoomId && navigationRef.isReady()) {
-        navigationRef.navigate("ChatRoom", { chatRoomId: acceptedChatRoomId });
+      if (acceptedChatRoomId) {
+        resetToChatsThenOpenChatRoom(acceptedChatRoomId);
       }
       showInAppBanner("빠른 매칭 수락 요청을 보냈어요.");
     } catch (error) {
@@ -228,12 +262,12 @@ export function QuickMatchAlertListener() {
           const detail = await fetchQuickMatch(quickMatchId);
           const acceptedByUserId = toNumberOrNull(detail?.quickMatch?.acceptedByUserId);
           if (acceptedByUserId && acceptedByUserId === userId) {
-            const resolvedChatRoomId = await resolveDirectQuickMatchChatRoomId({
+            const resolvedChatRoomId = await resolveDirectQuickMatchChatRoomIdWithRetry({
               quickMatchId,
               acceptedByUserId,
             });
-            if (resolvedChatRoomId && navigationRef.isReady()) {
-              navigationRef.navigate("ChatRoom", { chatRoomId: resolvedChatRoomId });
+            if (resolvedChatRoomId) {
+              resetToChatsThenOpenChatRoom(resolvedChatRoomId);
             } else if (navigationRef.isReady()) {
               navigationRef.navigate("Tabs", { screen: "Chats" });
             }
@@ -414,7 +448,7 @@ export function QuickMatchAlertListener() {
                 acceptedByUserId: event?.quickMatch?.acceptedByUserId,
               });
               if (resolvedChatRoomId) {
-                navigationRef.navigate("ChatRoom", { chatRoomId: resolvedChatRoomId });
+                resetToChatsThenOpenChatRoom(resolvedChatRoomId);
               } else {
                 navigationRef.navigate("Tabs", { screen: "Chats" });
               }
@@ -451,20 +485,20 @@ export function QuickMatchAlertListener() {
         if (quickMatchId && !alreadyHandled) {
           handledAcceptedQuickMatchesRef.current.add(quickMatchId);
           try {
-            if (acceptedChatRoomId && navigationRef.isReady()) {
-              navigationRef.navigate("ChatRoom", { chatRoomId: acceptedChatRoomId });
+            if (acceptedChatRoomId) {
+              resetToChatsThenOpenChatRoom(acceptedChatRoomId);
             } else {
               const resolvedChatRoomId = await resolveDirectQuickMatchChatRoomId({
                 quickMatchId,
                 acceptedByUserId,
               });
-              if (resolvedChatRoomId && navigationRef.isReady()) {
-                navigationRef.navigate("ChatRoom", { chatRoomId: resolvedChatRoomId });
+              if (resolvedChatRoomId) {
+                resetToChatsThenOpenChatRoom(resolvedChatRoomId);
               } else if (acceptedMingleId) {
                 const joined = await joinMingleChatRoom(acceptedMingleId);
                 const chatRoomId = toNumberOrNull(joined?.chatRoom?.id);
-                if (chatRoomId && navigationRef.isReady()) {
-                  navigationRef.navigate("ChatRoom", { chatRoomId });
+                if (chatRoomId) {
+                  resetToChatsThenOpenChatRoom(chatRoomId);
                 } else if (navigationRef.isReady()) {
                   navigationRef.navigate("Tabs", {
                     screen: "Chats",
