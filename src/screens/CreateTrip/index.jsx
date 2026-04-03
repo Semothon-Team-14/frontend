@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { CalendarDateField } from "../../components/CalendarDateField";
 import { SearchDropdown } from "../../components/SearchDropdown";
-import { createTrip } from "../../services/tripService";
+import { createTrip, fetchTrip, updateTrip } from "../../services/tripService";
 import { fetchAllCities } from "../../services/placeService";
 
 function normalizeLiteral(value) {
@@ -20,7 +20,7 @@ function getCitySearchText(city) {
     .join(" ");
 }
 
-export function CreateTrip({ navigation }) {
+export function CreateTrip({ navigation, route }) {
   const [title, setTitle] = useState("");
   const [cityQuery, setCityQuery] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -29,22 +29,70 @@ export function CreateTrip({ navigation }) {
   const [selectedCity, setSelectedCity] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [loadingInitialData, setLoadingInitialData] = useState(false);
+
+  const tripId = Number(route?.params?.tripId || 0);
+  const isEditMode = tripId > 0;
 
   useEffect(() => {
-    async function loadCities() {
+    let mounted = true;
+
+    async function loadInitialData() {
+      setLoadingInitialData(true);
       try {
-        const loadedCities = await fetchAllCities();
+        const [loadedCities, tripResponse] = await Promise.all([
+          fetchAllCities(),
+          isEditMode ? fetchTrip(tripId) : Promise.resolve(null),
+        ]);
+
+        if (!mounted) {
+          return;
+        }
+
         const dedupedCities = Array.from(
           new Map((loadedCities ?? []).map((city) => [city?.id, city])).values(),
-        ).sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+        ).sort((a, b) => String(getCityDisplayName(a)).localeCompare(String(getCityDisplayName(b))));
+
         setCities(dedupedCities);
+
+        if (isEditMode) {
+          const trip = tripResponse?.trip ?? null;
+          if (trip) {
+            const matchedCity = dedupedCities.find((city) => Number(city?.id) === Number(trip?.cityId)) || null;
+            setTitle(String(trip?.title || ""));
+            setStartDate(String(trip?.startDate || ""));
+            setEndDate(String(trip?.endDate || ""));
+            setSelectedCity(matchedCity);
+            setCityQuery(matchedCity ? getCityDisplayName(matchedCity) : "");
+          }
+        }
       } catch {
+        if (!mounted) {
+          return;
+        }
+
         setCities([]);
+        setError(isEditMode ? "여행 정보를 불러오지 못했습니다." : "도시 목록을 불러오지 못했습니다.");
+      } finally {
+        if (mounted) {
+          setLoadingInitialData(false);
+        }
       }
     }
 
-    loadCities();
-  }, []);
+    loadInitialData();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isEditMode, tripId]);
+
+  const actionLabel = useMemo(() => {
+    if (submitting) {
+      return isEditMode ? "수정 중..." : "생성 중...";
+    }
+    return isEditMode ? "여행 수정" : "여행 생성";
+  }, [isEditMode, submitting]);
 
   function handleCityQueryChange(nextQuery) {
     setCityQuery(nextQuery);
@@ -58,7 +106,7 @@ export function CreateTrip({ navigation }) {
     setSelectedCity(exactMatchedCity);
   }
 
-  async function handleCreateTrip() {
+  async function handleSubmitTrip() {
     if (!title.trim() || !startDate.trim() || !endDate.trim()) {
       setError("제목, 도시, 시작일, 종료일을 모두 입력해주세요.");
       return;
@@ -77,15 +125,22 @@ export function CreateTrip({ navigation }) {
     setSubmitting(true);
     setError(null);
     try {
-      await createTrip({
+      const payload = {
         title: title.trim(),
         cityId: selectedCity.id,
         startDate: startDate.trim(),
         endDate: endDate.trim(),
-      });
+      };
+
+      if (isEditMode) {
+        await updateTrip(tripId, payload);
+      } else {
+        await createTrip(payload);
+      }
+
       navigation.goBack();
     } catch (requestError) {
-      setError(requestError?.message ?? "여행 생성에 실패했습니다.");
+      setError(requestError?.message ?? (isEditMode ? "여행 수정에 실패했습니다." : "여행 생성에 실패했습니다."));
     } finally {
       setSubmitting(false);
     }
@@ -97,7 +152,7 @@ export function CreateTrip({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color="#111" />
         </Pressable>
-        <Text style={styles.headerTitle}>새 여행 추가</Text>
+        <Text style={styles.headerTitle}>{isEditMode ? "여행 수정" : "새 여행 추가"}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -150,10 +205,15 @@ export function CreateTrip({ navigation }) {
           placeholder="종료일 선택"
         />
 
+        {loadingInitialData ? <Text style={styles.metaText}>여행 정보를 불러오는 중...</Text> : null}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <Pressable style={[styles.createButton, submitting && styles.createButtonDisabled]} onPress={handleCreateTrip} disabled={submitting}>
-          <Text style={styles.createButtonText}>{submitting ? "생성 중..." : "여행 생성"}</Text>
+        <Pressable
+          style={[styles.createButton, (submitting || loadingInitialData) && styles.createButtonDisabled]}
+          onPress={handleSubmitTrip}
+          disabled={submitting || loadingInitialData}
+        >
+          <Text style={styles.createButtonText}>{actionLabel}</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -193,6 +253,11 @@ const styles = StyleSheet.create({
   errorText: {
     color: "#C62828",
     fontSize: 13,
+  },
+  metaText: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "600",
   },
   selectedCityText: {
     fontSize: 12,
