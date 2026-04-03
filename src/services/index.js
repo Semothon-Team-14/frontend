@@ -6,5 +6,6 @@ export * from './mingleService';
 export * from './placeService';
 export * from './quickMatchService';
 export * from './savedPlaceService';
+export * from './ticketValidationService';
 export * from './tripService';
 export * from './userService';
