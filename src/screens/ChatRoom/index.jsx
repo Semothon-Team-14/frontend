@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: 31,
+    fontSize: 18,
     fontWeight: "700",
     color: "#111827",
   },
