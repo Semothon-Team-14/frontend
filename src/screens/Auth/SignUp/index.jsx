@@ -64,7 +64,7 @@ function isFilled(value) {
 }
 
 export function SignUpScreen({ navigation }) {
-  const { signup, login } = useAuth();
+  const { signup, login, completeLogin } = useAuth();
 
   const [step, setStep] = useState(STEP_RESIDENCE);
   const [loading, setLoading] = useState(false);
@@ -388,10 +388,16 @@ export function SignUpScreen({ navigation }) {
         }
       }
 
-      await login(profile.username.trim(), profile.password);
+      const loginToken = await login(profile.username.trim(), profile.password, {
+        deferAuthState: true,
+      });
 
       if (selectedResidenceCity?.id) {
-        await createLocal({ cityId: selectedResidenceCity.id });
+        try {
+          await createLocal({ cityId: selectedResidenceCity.id });
+        } catch {
+          // Keep signup flow resilient; user can update local city later.
+        }
       }
 
       if (
@@ -400,13 +406,19 @@ export function SignUpScreen({ navigation }) {
         isFilled(tripEndDate)
       ) {
         const tripTitle = `${getCityDisplayName(selectedTripCity)} 여행`;
-        await createTrip({
-          title: tripTitle,
-          cityId: selectedTripCity.id,
-          startDate: tripStartDate,
-          endDate: tripEndDate,
-        });
+        try {
+          await createTrip({
+            title: tripTitle,
+            cityId: selectedTripCity.id,
+            startDate: tripStartDate,
+            endDate: tripEndDate,
+          });
+        } catch {
+          // Keep signup flow resilient; user can add trip later.
+        }
       }
+
+      completeLogin(loginToken);
     } catch (requestError) {
       setError(requestError?.message || "회원가입 처리에 실패했습니다.");
     } finally {
