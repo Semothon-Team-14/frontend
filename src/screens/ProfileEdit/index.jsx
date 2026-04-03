@@ -1,22 +1,43 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { SearchDropdown } from "../../components/SearchDropdown";
 import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
-import { fetchNationalities, fetchUser, updateUser, uploadUserProfileImage } from "../../services";
+import {
+  fetchNationalities,
+  fetchUser,
+  updateUser,
+  uploadUserProfileImage,
+} from "../../services";
 
 function normalizeLiteral(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function getNationalityDisplayName(nationality) {
-  return nationality?.countryNameKorean || nationality?.countryNameEnglish || "";
+  return (
+    nationality?.countryNameKorean || nationality?.countryNameEnglish || ""
+  );
 }
 
 function getNationalitySearchText(nationality) {
-  return [nationality?.countryNameKorean, nationality?.countryNameEnglish, nationality?.countryCode]
+  return [
+    nationality?.countryNameKorean,
+    nationality?.countryNameEnglish,
+    nationality?.countryCode,
+  ]
     .filter(Boolean)
     .join(" ");
 }
@@ -51,7 +72,10 @@ export function ProfileEdit({ navigation }) {
         ]);
         const user = userResponse?.user;
         const loadedNationalities = nationalityResponse?.nationalities ?? [];
-        const matchedNationality = loadedNationalities.find((item) => Number(item?.id) === Number(user?.nationalityId)) || null;
+        const matchedNationality =
+          loadedNationalities.find(
+            (item) => Number(item?.id) === Number(user?.nationalityId),
+          ) || null;
 
         setForm({
           name: user?.name || "",
@@ -63,7 +87,11 @@ export function ProfileEdit({ navigation }) {
         });
         setNationalities(loadedNationalities);
         setSelectedNationality(matchedNationality);
-        setNationalityQuery(matchedNationality ? getNationalityDisplayName(matchedNationality) : "");
+        setNationalityQuery(
+          matchedNationality
+            ? getNationalityDisplayName(matchedNationality)
+            : "",
+        );
       } catch {
         setError("사용자 정보를 불러오지 못했습니다.");
       }
@@ -75,12 +103,17 @@ export function ProfileEdit({ navigation }) {
   function handleNationalityQueryChange(nextQuery) {
     setNationalityQuery(nextQuery);
     const normalizedQuery = normalizeLiteral(nextQuery);
-    const exactMatched = nationalities.find((nationality) => {
-      const ko = normalizeLiteral(nationality?.countryNameKorean);
-      const en = normalizeLiteral(nationality?.countryNameEnglish);
-      const code = normalizeLiteral(nationality?.countryCode);
-      return normalizedQuery === ko || normalizedQuery === en || normalizedQuery === code;
-    }) || null;
+    const exactMatched =
+      nationalities.find((nationality) => {
+        const ko = normalizeLiteral(nationality?.countryNameKorean);
+        const en = normalizeLiteral(nationality?.countryNameEnglish);
+        const code = normalizeLiteral(nationality?.countryCode);
+        return (
+          normalizedQuery === ko ||
+          normalizedQuery === en ||
+          normalizedQuery === code
+        );
+      }) || null;
     setSelectedNationality(exactMatched);
   }
 
@@ -117,17 +150,23 @@ export function ProfileEdit({ navigation }) {
   async function pickAndUploadProfileImage(source) {
     setError(null);
     try {
-      const permission = source === "camera"
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        source === "camera"
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        setError(source === "camera" ? "카메라 권한을 허용해주세요." : "사진 접근 권한을 허용해주세요.");
+        setError(
+          source === "camera"
+            ? "카메라 권한을 허용해주세요."
+            : "사진 접근 권한을 허용해주세요.",
+        );
         return;
       }
 
-      const launch = source === "camera"
-        ? ImagePicker.launchCameraAsync
-        : ImagePicker.launchImageLibraryAsync;
+      const launch =
+        source === "camera"
+          ? ImagePicker.launchCameraAsync
+          : ImagePicker.launchImageLibraryAsync;
       const picked = await launch({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -168,7 +207,10 @@ export function ProfileEdit({ navigation }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={24} color="#111" />
@@ -178,11 +220,14 @@ export function ProfileEdit({ navigation }) {
       </View>
 
       <View style={styles.formCard}>
-        <Text style={styles.label}>Profile Photo</Text>
+        <Text style={styles.label}>프로필 이미지</Text>
         <View style={styles.profileImageRow}>
           <View style={styles.profileImagePreview}>
             {form.profileImageUrl ? (
-              <Image source={{ uri: form.profileImageUrl }} style={styles.profileImage} />
+              <Image
+                source={{ uri: form.profileImageUrl }}
+                style={styles.profileImage}
+              />
             ) : (
               <Ionicons
                 name="person-circle"
@@ -193,25 +238,46 @@ export function ProfileEdit({ navigation }) {
             )}
           </View>
           <View style={styles.profileImageButtonGroup}>
-            <Pressable style={styles.profileImageButton} onPress={handlePickProfileImageFromGallery} disabled={loading}>
+            <Pressable
+              style={styles.profileImageButton}
+              onPress={handlePickProfileImageFromGallery}
+              disabled={loading}
+            >
               <Text style={styles.profileImageButtonText}>갤러리</Text>
             </Pressable>
-            <Pressable style={styles.profileImageButton} onPress={handlePickProfileImageFromCamera} disabled={loading}>
+            <Pressable
+              style={styles.profileImageButton}
+              onPress={handlePickProfileImageFromCamera}
+              disabled={loading}
+            >
               <Text style={styles.profileImageButtonText}>카메라</Text>
             </Pressable>
           </View>
         </View>
 
-        <Text style={styles.label}>Name</Text>
-        <TextInput style={styles.input} value={form.name} onChangeText={(v) => updateField("name", v)} />
+        <Text style={styles.label}>닉네임</Text>
+        <TextInput
+          style={styles.input}
+          value={form.name}
+          onChangeText={(v) => updateField("name", v)}
+        />
 
-        <Text style={styles.label}>Email</Text>
-        <TextInput style={styles.input} value={form.email} onChangeText={(v) => updateField("email", v)} autoCapitalize="none" />
+        <Text style={styles.label}>이메일</Text>
+        <TextInput
+          style={styles.input}
+          value={form.email}
+          onChangeText={(v) => updateField("email", v)}
+          autoCapitalize="none"
+        />
 
-        <Text style={styles.label}>Phone</Text>
-        <TextInput style={styles.input} value={form.phone} onChangeText={(v) => updateField("phone", v)} />
+        <Text style={styles.label}>전화번호</Text>
+        <TextInput
+          style={styles.input}
+          value={form.phone}
+          onChangeText={(v) => updateField("phone", v)}
+        />
 
-        <Text style={styles.label}>Nationality</Text>
+        <Text style={styles.label}>국가</Text>
         <SearchDropdown
           value={nationalityQuery}
           onChangeText={handleNationalityQueryChange}
@@ -228,19 +294,39 @@ export function ProfileEdit({ navigation }) {
           emptyText="일치하는 국가가 없습니다."
         />
 
-        <Text style={styles.label}>Sex</Text>
+        <Text style={styles.label}>성별</Text>
         <View style={styles.sexRow}>
           <Pressable
-            style={[styles.sexButton, form.sex === "MALE" && styles.sexButtonActive]}
+            style={[
+              styles.sexButton,
+              form.sex === "MALE" && styles.sexButtonActive,
+            ]}
             onPress={() => updateField("sex", "MALE")}
           >
-            <Text style={[styles.sexText, form.sex === "MALE" && styles.sexTextActive]}>MALE</Text>
+            <Text
+              style={[
+                styles.sexText,
+                form.sex === "MALE" && styles.sexTextActive,
+              ]}
+            >
+              남자
+            </Text>
           </Pressable>
           <Pressable
-            style={[styles.sexButton, form.sex === "FEMALE" && styles.sexButtonActive]}
+            style={[
+              styles.sexButton,
+              form.sex === "FEMALE" && styles.sexButtonActive,
+            ]}
             onPress={() => updateField("sex", "FEMALE")}
           >
-            <Text style={[styles.sexText, form.sex === "FEMALE" && styles.sexTextActive]}>FEMALE</Text>
+            <Text
+              style={[
+                styles.sexText,
+                form.sex === "FEMALE" && styles.sexTextActive,
+              ]}
+            >
+              여자
+            </Text>
           </Pressable>
         </View>
 
@@ -254,8 +340,14 @@ export function ProfileEdit({ navigation }) {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <Pressable style={[styles.saveButton, loading && styles.saveButtonDisabled]} onPress={handleSave} disabled={loading}>
-          <Text style={styles.saveButtonText}>{loading ? "저장 중..." : "저장"}</Text>
+        <Pressable
+          style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={loading}
+        >
+          <Text style={styles.saveButtonText}>
+            {loading ? "저장 중..." : "저장"}
+          </Text>
         </Pressable>
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>로그아웃</Text>
@@ -304,7 +396,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   profileImageRow: {
-    flexDirection: "row",
+    // flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginBottom: 4,
@@ -344,6 +436,7 @@ const styles = StyleSheet.create({
   },
   profileImageButtonGroup: {
     gap: 8,
+    flexDirection: "row",
   },
   textArea: {
     minHeight: 70,
@@ -354,14 +447,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sexButton: {
-    flex: 1,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#D5D5D5",
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FFF",
+    paddingHorizontal: 20,
+    borderWidth: 0.5,
+    borderColor: "#D5D5D5",
   },
   sexButtonActive: {
     borderColor: "#0169FE",
