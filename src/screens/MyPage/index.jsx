@@ -85,6 +85,27 @@ export function MyPage({ navigation }) {
     }).length;
   }, [trips]);
 
+  const totalUniqueMinglerCount = useMemo(() => {
+    const uniqueIds = new Set();
+    directChatRoomsByRecent.forEach((room) => {
+      (room?.participantUserIds ?? []).forEach((participantId) => {
+        const safeUserId = Number(participantId || 0);
+        if (safeUserId > 0 && safeUserId !== Number(userId)) {
+          uniqueIds.add(safeUserId);
+        }
+      });
+    });
+    Object.values(mingleCompanionUserIdsByCity).forEach((ids) => {
+      (ids ?? []).forEach((id) => {
+        const safeUserId = Number(id || 0);
+        if (safeUserId > 0 && safeUserId !== Number(userId)) {
+          uniqueIds.add(safeUserId);
+        }
+      });
+    });
+    return uniqueIds.size;
+  }, [directChatRoomsByRecent, mingleCompanionUserIdsByCity, userId]);
+
   const mingleDaysInCurrentArea = useMemo(() => {
     const currentTrip = pickCurrentTrip(trips);
     if (!currentTrip?.startDate) {
@@ -244,7 +265,7 @@ export function MyPage({ navigation }) {
 
     function pushUserId(nextUserId) {
       const safeUserId = Number(nextUserId || 0);
-      if (safeUserId <= 0 || seenOtherUserIds.has(safeUserId)) {
+      if (safeUserId <= 0 || safeUserId === Number(userId) || seenOtherUserIds.has(safeUserId)) {
         return;
       }
 
@@ -340,7 +361,12 @@ export function MyPage({ navigation }) {
 
       <View style={styles.sheet}>
         <Text style={styles.sectionTitle}>{tx("나의 지역", "My Area")}</Text>
-        <Text style={styles.sectionSubtitle}>{tx(`지금까지 ${trips.length}명의 밍글러와 함께 했어요!`, `${trips.length} minglers so far`)}</Text>
+        <Text style={styles.sectionSubtitle}>
+          {tx(
+            `지금까지 ${totalUniqueMinglerCount}명의 밍글러와 함께 했어요!`,
+            `${totalUniqueMinglerCount} minglers so far`,
+          )}
+        </Text>
 
         <View style={styles.locationCard}>
           <View style={styles.locationTopRow}>
