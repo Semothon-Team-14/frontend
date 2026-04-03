@@ -21,11 +21,13 @@ import { SignUpScreen } from "../screens/Auth/SignUp";
 import { useAuth } from "../auth";
 import { QuickMatchAlertListener } from "../realtime/QuickMatchAlertListener";
 import { navigationRef } from "./navigationRef";
+import { useLocale } from "../locale";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 function TabsNavigator() {
+  const { tx } = useLocale();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -37,7 +39,7 @@ function TabsNavigator() {
         name="MainScreen"
         component={MainScreen}
         options={{
-          title: "홈",
+          title: tx("홈", "Home"),
           tabBarIcon: ({ color }) => <HomeIcon color={color} />,
         }}
       />
@@ -45,7 +47,7 @@ function TabsNavigator() {
         name="Chats"
         component={Chats}
         options={{
-          title: "채팅",
+          title: tx("채팅", "Chats"),
           tabBarIcon: ({ color }) => <ChatIcon color={color} />,
         }}
       />
@@ -53,7 +55,7 @@ function TabsNavigator() {
         name="MyPage"
         component={MyPage}
         options={{
-          title: "나의 기록",
+          title: tx("나의 기록", "History"),
           tabBarIcon: ({ color }) => <MyPageIcon color={color} />,
         }}
       />
@@ -61,7 +63,7 @@ function TabsNavigator() {
         name="BookMark"
         component={BookMark}
         options={{
-          title: "저장",
+          title: tx("저장", "Saved"),
           tabBarIcon: ({ color }) => <BookMarkIcon color={color} />,
         }}
       />
