@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocale } from "../../locale";
+import { fetchChatRooms } from "../../services/chatService";
 import { fetchMingleMinglers, fetchMinglePlacePhotos, fetchMingles, uploadMinglePlacePhoto } from "../../services/mingleService";
 import { fetchAllCities } from "../../services/placeService";
 import { fetchTrip } from "../../services/tripService";
@@ -109,11 +110,12 @@ export function TripRecordDetail({ navigation, route }) {
 
     setLoading(true);
     try {
-      const [tripResponse, allCities, usersResponse, minglesResponse] = await Promise.all([
+      const [tripResponse, allCities, usersResponse, minglesResponse, chatRoomsResponse] = await Promise.all([
         fetchTrip(tripId),
         fetchAllCities(),
         fetchUsers(),
         fetchMingles(),
+        fetchChatRooms(),
       ]);
 
       const loadedTrip = tripResponse?.trip ?? null;
@@ -180,6 +182,29 @@ export function TripRecordDetail({ navigation, route }) {
             existing || Boolean(mingler?.local),
           );
         }
+      });
+      const directChatCompanions = (chatRoomsResponse?.chatRooms ?? [])
+        .filter((room) => Boolean(room?.directChat))
+        .filter((room) => {
+          return (
+            overlapsTripWindow(room?.updatedDateTime, tripStartAt, tripEndAt) ||
+            overlapsTripWindow(room?.createdDateTime, tripStartAt, tripEndAt)
+          );
+        });
+      directChatCompanions.forEach((room) => {
+        const otherUserId = (room?.participantUserIds ?? [])
+          .map((id) => Number(id || 0))
+          .find((id) => id > 0 && id !== Number(userId));
+        if (!otherUserId) {
+          return;
+        }
+
+        mingleCompanionIds.add(otherUserId);
+        const existing = Boolean(companionLocalByUserId.get(otherUserId));
+        companionLocalByUserId.set(
+          otherUserId,
+          existing || Boolean(room?.otherParticipantLocal),
+        );
       });
 
       const allCompanionIds = Array.from(mingleCompanionIds);
