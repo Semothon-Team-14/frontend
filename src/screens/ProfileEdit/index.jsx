@@ -15,6 +15,12 @@ import { useAuth } from "../../auth";
 import { decodeUserIdFromToken } from "../../auth/userId";
 import { useLocale } from "../../locale";
 import {
+  getCurrentHomeMode,
+  HOME_MODE_LOCAL,
+  HOME_MODE_TRAVELER,
+  setCurrentHomeMode,
+} from "../../state/homeMode";
+import {
   fetchLocals,
   fetchNationalities,
   fetchUser,
@@ -64,6 +70,7 @@ export function ProfileEdit({ navigation }) {
   const [selectedNationality, setSelectedNationality] = useState(null);
   const [localId, setLocalId] = useState(null);
   const [availableTimeText, setAvailableTimeText] = useState("");
+  const [selectedHomeMode, setSelectedHomeMode] = useState(getCurrentHomeMode());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -362,6 +369,52 @@ export function ProfileEdit({ navigation }) {
           placeholder={tx("자기소개를 입력하세요", "Write a short introduction")}
         />
 
+        <Text style={styles.label}>{tx("홈 화면 모드", "Home Screen Mode")}</Text>
+        <View style={styles.homeModeToggleRow}>
+          <Pressable
+            style={[
+              styles.homeModeToggleButton,
+              selectedHomeMode === HOME_MODE_TRAVELER &&
+                styles.homeModeToggleButtonActive,
+            ]}
+            onPress={() => {
+              setSelectedHomeMode(HOME_MODE_TRAVELER);
+              setCurrentHomeMode(HOME_MODE_TRAVELER);
+            }}
+          >
+            <Text
+              style={[
+                styles.homeModeToggleText,
+                selectedHomeMode === HOME_MODE_TRAVELER &&
+                  styles.homeModeToggleTextActive,
+              ]}
+            >
+              {tx("여행자", "Traveler")}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.homeModeToggleButton,
+              selectedHomeMode === HOME_MODE_LOCAL &&
+                styles.homeModeToggleButtonActive,
+            ]}
+            onPress={() => {
+              setSelectedHomeMode(HOME_MODE_LOCAL);
+              setCurrentHomeMode(HOME_MODE_LOCAL);
+            }}
+          >
+            <Text
+              style={[
+                styles.homeModeToggleText,
+                selectedHomeMode === HOME_MODE_LOCAL &&
+                  styles.homeModeToggleTextActive,
+              ]}
+            >
+              {tx("로컬", "Local")}
+            </Text>
+          </Pressable>
+        </View>
+
         {Number(localId) > 0 ? (
           <>
             <Text style={styles.label}>{tx("가능 시간", "Available Time")}</Text>
@@ -473,6 +526,31 @@ const styles = StyleSheet.create({
   profileImageButtonGroup: {
     gap: 8,
     flexDirection: "row",
+  },
+  homeModeToggleRow: {
+    flexDirection: "row",
+    backgroundColor: "#E8ECF3",
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+  },
+  homeModeToggleButton: {
+    flex: 1,
+    height: 34,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  homeModeToggleButtonActive: {
+    backgroundColor: "#FFFFFF",
+  },
+  homeModeToggleText: {
+    color: "#6B7280",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  homeModeToggleTextActive: {
+    color: "#1C73F0",
   },
   textArea: {
     minHeight: 70,
